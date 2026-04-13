@@ -1,0 +1,255 @@
+version: "3.9"
+
+# Banking application services only.
+# Monitoring stack lives in docker-compose.monitoring.yml.
+#
+# The 'banking' network is declared external so both stacks share it.
+# Create it once with: docker network create banking
+# (make up does this automatically)
+
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - banking
+
+services:
+  # ── API Gateway ────────────────────────────────────────────────
+  api-gateway:
+    <<: *common
+    image: banking/api-gateway:latest
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8000:8000"
+    environment:
+      SERVICE_NAME: api-gateway
+      AUTH_SERVICE_URL: http://auth-service:8001
+      CUSTOMER_SERVICE_URL: http://customer-service:8002
+      ACCOUNT_SERVICE_URL: http://account-service:8003
+      TRANSACTION_SERVICE_URL: http://transaction-service:8004
+      LEDGER_SERVICE_URL: http://ledger-service:8005
+      FRAUD_SERVICE_URL: http://fraud-service:8006
+      NOTIFICATION_SERVICE_URL: http://notification-service:8007
+      REPORTING_SERVICE_URL: http://reporting-service:8008
+      CHAOS_SERVICE_URL: http://chaos-service:8009
+    depends_on:
+      - auth-service
+      - customer-service
+      - account-service
+      - transaction-service
+
+  # ── Auth Service ───────────────────────────────────────────────
+  auth-service:
+    <<: *common
+    image: banking/auth-service:latest
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8001:8001"
+    environment:
+      SERVICE_NAME: auth-service
+      PORT: "8001"
+      DATABASE_URL: sqlite:////data/auth.db
+      JWT_SECRET: dev-secret-change-in-prod
+      JWT_EXPIRE_MINUTES: "60"
+    volumes:
+      - auth-data:/data
+
+  # ── Customer Service ───────────────────────────────────────────
+  customer-service:
+    <<: *common
+    image: banking/customer-service:latest
+    build:
+      context: .
+      dockerfile: services/customer-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8002:8002"
+    environment:
+      SERVICE_NAME: customer-service
+      PORT: "8002"
+      DATABASE_URL: sqlite:////data/customers.db
+    volumes:
+      - customer-data:/data
+
+  # ── Account Service ────────────────────────────────────────────
+  account-service:
+    <<: *common
+    image: banking/account-service:latest
+    build:
+      context: .
+      dockerfile: services/account-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8003:8003"
+    environment:
+      SERVICE_NAME: account-service
+      PORT: "8003"
+      DATABASE_URL: sqlite:////data/accounts.db
+    volumes:
+      - account-data:/data
+
+  # ── Transaction Service ────────────────────────────────────────
+  transaction-service:
+    <<: *common
+    image: banking/transaction-service:latest
+    build:
+      context: .
+      dockerfile: services/transaction-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8004:8004"
+    environment:
+      SERVICE_NAME: transaction-service
+      PORT: "8004"
+      DATABASE_URL: sqlite:////data/transactions.db
+      ACCOUNT_SERVICE_URL: http://account-service:8003
+      LEDGER_SERVICE_URL: http://ledger-service:8005
+      FRAUD_SERVICE_URL: http://fraud-service:8006
+      NOTIFICATION_SERVICE_URL: http://notification-service:8007
+    volumes:
+      - transaction-data:/data
+
+  # ── Ledger Service ─────────────────────────────────────────────
+  ledger-service:
+    <<: *common
+    image: banking/ledger-service:latest
+    build:
+      context: .
+      dockerfile: services/ledger-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8005:8005"
+    environment:
+      SERVICE_NAME: ledger-service
+      PORT: "8005"
+      DATABASE_URL: sqlite:////data/ledger.db
+    volumes:
+      - ledger-data:/data
+
+  # ── Fraud Service ──────────────────────────────────────────────
+  fraud-service:
+    <<: *common
+    image: banking/fraud-service:latest
+    build:
+      context: .
+      dockerfile: services/fraud-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8006:8006"
+    environment:
+      SERVICE_NAME: fraud-service
+      PORT: "8006"
+      DATABASE_URL: sqlite:////data/fraud.db
+    volumes:
+      - fraud-data:/data
+
+  # ── Notification Service ───────────────────────────────────────
+  notification-service:
+    <<: *common
+    image: banking/notification-service:latest
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8007:8007"
+    environment:
+      SERVICE_NAME: notification-service
+      PORT: "8007"
+      DATABASE_URL: sqlite:////data/notifications.db
+    volumes:
+      - notification-data:/data
+
+  # ── Reporting Service ──────────────────────────────────────────
+  reporting-service:
+    <<: *common
+    image: banking/reporting-service:latest
+    build:
+      context: .
+      dockerfile: services/reporting-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8008:8008"
+    environment:
+      SERVICE_NAME: reporting-service
+      PORT: "8008"
+      ACCOUNT_SERVICE_URL: http://account-service:8003
+      LEDGER_SERVICE_URL: http://ledger-service:8005
+      TRANSACTION_SERVICE_URL: http://transaction-service:8004
+      CUSTOMER_SERVICE_URL: http://customer-service:8002
+
+  # ── Chaos Service ──────────────────────────────────────────────
+  chaos-service:
+    <<: *common
+    image: banking/chaos-service:latest
+    build:
+      context: .
+      dockerfile: services/chaos-service/Dockerfile
+      args:
+        BASE_IMAGE: banking/base:latest
+    ports:
+      - "8009:8009"
+    environment:
+      SERVICE_NAME: chaos-service
+      PORT: "8009"
+      TRANSACTION_SERVICE_URL: http://transaction-service:8004
+      ACCOUNT_SERVICE_URL: http://account-service:8003
+      FRAUD_SERVICE_URL: http://fraud-service:8006
+
+  # ── Frontend ───────────────────────────────────────────────────
+  frontend:
+    <<: *common
+    image: banking/frontend:latest
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"
+    environment:
+      REACT_APP_API_URL: http://localhost:8000
+
+  # ── Seed Job — run manually: make seed ────────────────────────
+  seed:
+    image: banking/base:latest
+    build:
+      context: ./base
+    networks:
+      - banking
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8001
+      CUSTOMER_SERVICE_URL: http://customer-service:8002
+      ACCOUNT_SERVICE_URL: http://account-service:8003
+      TRANSACTION_SERVICE_URL: http://transaction-service:8004
+    volumes:
+      - ./seed:/app
+    working_dir: /app
+    command: python seed.py
+    profiles:
+      - seed
+    restart: "no"
+
+networks:
+  banking:
+    external: true   # created by 'make up' / 'docker network create banking'
+
+volumes:
+  auth-data:
+  customer-data:
+  account-data:
+  transaction-data:
+  ledger-data:
+  fraud-data:
+  notification-data:

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: banking
+description: Resolve Banking Demo — multi-service O11y playground
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

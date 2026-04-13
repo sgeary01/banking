@@ -1,0 +1,58 @@
+{{- if .Values.seed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: banking-seed
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        # Wait for auth-service to be ready before seeding
+        - name: wait-for-services
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for services…"
+              until curl -sf http://auth-service:8001/health; do sleep 3; done
+              until curl -sf http://customer-service:8002/health; do sleep 3; done
+              until curl -sf http://account-service:8003/health; do sleep 3; done
+              until curl -sf http://transaction-service:8004/health; do sleep 3; done
+              echo "All services ready."
+      containers:
+        - name: seed
+          image: {{ .Values.seed.image }}
+          command: ["python", "/seed/seed.py"]
+          env:
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:8001"
+            - name: CUSTOMER_SERVICE_URL
+              value: "http://customer-service:8002"
+            - name: ACCOUNT_SERVICE_URL
+              value: "http://account-service:8003"
+            - name: TRANSACTION_SERVICE_URL
+              value: "http://transaction-service:8004"
+          volumeMounts:
+            - name: seed-script
+              mountPath: /seed
+      volumes:
+        - name: seed-script
+          configMap:
+            name: banking-seed-script
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: banking-seed-script
+  namespace: {{ .Release.Namespace }}
+data:
+  seed.py: |
+    {{ .Files.Get "seed/seed.py" | nindent 4 }}
+{{- end }}

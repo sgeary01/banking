@@ -1,0 +1,114 @@
+{{/*
+  Generates Deployment + Service for each backend service.
+  Frontend and gateway get NodePort; others get ClusterIP.
+*/}}
+
+{{- $root := . }}
+
+{{- range $name, $cfg := .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app: {{ $name }}
+    {{- include "banking.labels" $root | nindent 4 }}
+spec:
+  replicas: {{ $cfg.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $cfg.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: {{ $root.Values.image.registry }}/{{ $name }}:{{ $root.Values.image.tag }}
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $cfg.port }}
+          env:
+            - name: SERVICE_NAME
+              value: {{ $name | quote }}
+            - name: PORT
+              value: {{ $cfg.port | quote }}
+            - name: JWT_SECRET
+              value: {{ $root.Values.jwtSecret | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ $root.Values.otelEndpoint | quote }}
+            - name: DATABASE_URL
+              value: "sqlite:////data/{{ $name }}.db"
+            # Service discovery — all services in-cluster
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:8001"
+            - name: CUSTOMER_SERVICE_URL
+              value: "http://customer-service:8002"
+            - name: ACCOUNT_SERVICE_URL
+              value: "http://account-service:8003"
+            - name: TRANSACTION_SERVICE_URL
+              value: "http://transaction-service:8004"
+            - name: LEDGER_SERVICE_URL
+              value: "http://ledger-service:8005"
+            - name: FRAUD_SERVICE_URL
+              value: "http://fraud-service:8006"
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:8007"
+            - name: REPORTING_SERVICE_URL
+              value: "http://reporting-service:8008"
+            - name: CHAOS_SERVICE_URL
+              value: "http://chaos-service:8009"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ $cfg.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ $cfg.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml $root.Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if ne $name "frontend" }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+      volumes:
+        {{- if ne $name "frontend" }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app: {{ $name }}
+spec:
+  {{- if or (eq $name "api-gateway") (eq $name "frontend") }}
+  type: NodePort
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector:
+    app: {{ $name }}
+  ports:
+    - port: {{ $cfg.port }}
+      targetPort: {{ $cfg.port }}
+      {{- if and (or (eq $name "api-gateway") (eq $name "frontend")) $cfg.nodePort }}
+      nodePort: {{ $cfg.nodePort }}
+      {{- end }}
+{{- end }}

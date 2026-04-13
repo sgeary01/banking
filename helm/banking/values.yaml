@@ -1,0 +1,73 @@
+# Global image settings
+image:
+  registry: banking
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Resource defaults — tuned for laptop (k3d / Docker Desktop)
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    cpu: 250m
+    memory: 192Mi
+
+# JWT secret — override in production
+jwtSecret: dev-secret-change-in-prod
+
+# Optional: OTEL collector endpoint (leave empty until you add Tempo/Jaeger)
+otelEndpoint: ""
+
+# Per-service overrides
+services:
+  api-gateway:
+    port: 8000
+    nodePort: 30000
+    replicas: 1
+
+  auth-service:
+    port: 8001
+    replicas: 1
+
+  customer-service:
+    port: 8002
+    replicas: 1
+
+  account-service:
+    port: 8003
+    replicas: 1
+
+  transaction-service:
+    port: 8004
+    replicas: 1
+
+  ledger-service:
+    port: 8005
+    replicas: 1
+
+  fraud-service:
+    port: 8006
+    replicas: 1
+
+  notification-service:
+    port: 8007
+    replicas: 1
+
+  reporting-service:
+    port: 8008
+    replicas: 1
+
+  chaos-service:
+    port: 8009
+    replicas: 1
+
+  frontend:
+    port: 80
+    nodePort: 30080
+    replicas: 1
+
+# Seed job — runs once on install
+seed:
+  enabled: true
+  image: banking/base:latest
