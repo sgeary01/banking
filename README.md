@@ -6,32 +6,34 @@ A realistic multi-service banking application built for learning **observability
 
 ## What's Inside
 
-10 Python microservices, a React frontend, a chaos engineering service, and a full observability stack — all wired together and ready to generate real signals.
+10 Python microservices, a React frontend, a chaos engineering service, and a full observability stack — all deployed to Kubernetes via Helm.
 
 ### Services
 
-| Service | Port | Responsibility |
+| Service | NodePort | Responsibility |
 |---|---|---|
-| `api-gateway` | 8000 | Single entry point — routes all external traffic |
-| `auth-service` | 8001 | JWT authentication, user registration & login |
-| `customer-service` | 8002 | Customer profiles & KYC data |
-| `account-service` | 8003 | Bank accounts, balances |
-| `transaction-service` | 8004 | Deposits, withdrawals, transfers — the core flow |
-| `ledger-service` | 8005 | Double-entry accounting records |
-| `fraud-service` | 8006 | Real-time fraud scoring on every transaction |
-| `notification-service` | 8007 | Transaction alerts & notifications |
-| `reporting-service` | 8008 | Aggregated balance and transaction reports |
-| `chaos-service` | 8009 | Inject latency and errors into any service |
-| `frontend` | 3000 | React UI — accounts, transactions, chaos panel |
+| `api-gateway` | 30000 | Single entry point — routes all external traffic |
+| `auth-service` | — | JWT authentication, user registration & login |
+| `customer-service` | — | Customer profiles & KYC data |
+| `account-service` | — | Bank accounts, balances |
+| `transaction-service` | — | Deposits, withdrawals, transfers — the core flow |
+| `ledger-service` | — | Double-entry accounting records |
+| `fraud-service` | — | Real-time fraud scoring on every transaction |
+| `notification-service` | — | Transaction alerts & notifications |
+| `reporting-service` | — | Aggregated balance and transaction reports |
+| `chaos-service` | — | Inject latency and errors into any service |
+| `frontend` | 30080 | React UI — accounts, transactions, chaos panel |
 
-### Observability Stack (separate compose)
+> Internal services are only reachable within the cluster. All external traffic goes through the api-gateway at port 30000.
 
-| Tool | Port | Purpose |
+### Observability Stack
+
+| Tool | NodePort | Purpose |
 |---|---|---|
-| Grafana | 3001 | Dashboards — pre-provisioned Banking Overview |
-| Prometheus | 9090 | Metrics scraping from all 10 services |
-| Loki | 3100 | Log aggregation |
-| Promtail | — | Ships Docker container logs to Loki |
+| Grafana | 30030 | Dashboards — pre-provisioned Banking Overview |
+| Prometheus | — (ClusterIP) | Metrics scraping from all 10 services |
+| Loki | — (ClusterIP) | Log aggregation |
+| Promtail | — (DaemonSet) | Ships pod logs to Loki via Kubernetes SD |
 
 ---
 
@@ -39,28 +41,26 @@ A realistic multi-service banking application built for learning **observability
 
 ```
 Browser
-  └── frontend :3000
-        └── api-gateway :8000
-              ├── auth-service :8001
-              ├── customer-service :8002
-              ├── account-service :8003
-              ├── transaction-service :8004  ──► ledger-service :8005
-              │                               ──► fraud-service :8006
-              │                               ──► notification-service :8007
-              ├── reporting-service :8008
-              └── chaos-service :8009
+  └── frontend :30080
+        └── api-gateway :30000
+              ├── auth-service
+              ├── customer-service
+              ├── account-service
+              ├── transaction-service  ──► ledger-service
+              │                        ──► fraud-service
+              │                        ──► notification-service
+              ├── reporting-service
+              └── chaos-service
 
-Monitoring (isolated network)
-  Prometheus ──► scrapes /metrics on all services
-  Promtail   ──► reads Docker container logs ──► Loki
-  Grafana    ──► queries Prometheus + Loki
+Kubernetes Cluster (orbstack)
+  ├── namespace: banking     ← all 10 services + frontend
+  └── namespace: monitoring  ← Prometheus, Loki, Promtail, Grafana
+        Prometheus scrapes banking services via cluster-internal DNS
+        Promtail discovers banking pods via Kubernetes SD
+        Grafana queries Prometheus + Loki — never touches the banking network directly
 ```
 
-**Two Docker networks keep monitoring signals clean:**
-- `banking` — app services + Prometheus (for scraping)
-- `monitoring` — Prometheus + Loki + Promtail + Grafana (internal only)
-
-Grafana never appears as a peer on the banking network, so its own metrics and logs don't pollute your dashboards.
+**Two namespaces keep monitoring signals clean.** Grafana and Loki only exist in `monitoring` — their own metrics and logs never appear in the banking dashboards.
 
 ---
 
@@ -68,27 +68,29 @@ Grafana never appears as a peer on the banking network, so its own metrics and l
 
 | Tool | Install |
 |---|---|
-| Docker + Docker Compose | [OrbStack](https://orbstack.dev) (recommended for Mac) or Docker Desktop |
+| [OrbStack](https://orbstack.dev) | Recommended Docker + K8s runtime for Mac (lighter than Docker Desktop) |
+| `helm` | `brew install helm` |
+| `kubectl` | Included with OrbStack |
 | `make` | Included on macOS |
-| `helm` | `brew install helm` (only needed for K8s deploy) |
 
-> **Resource budget:** the full stack (app + monitoring) uses ~3 GB RAM and ~4 CPU cores under load. Tested on a MacBook with 24 GB RAM.
+> **Resource budget:** the full stack uses ~3 GB RAM and ~4 CPU cores under load. Tested on a MacBook with 24 GB RAM.
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Build all images (takes ~3 min on first run, fast after that)
+# 1. Build all images (~3 min on first run, fast after that)
 make build
 
-# 2. Start the banking app
-make up
+# 2. Deploy banking app to Kubernetes
+make helm-install
 
-# 3. Start the monitoring stack
-make monitoring-up
+# 3. Deploy monitoring stack to Kubernetes
+make monitoring-helm-install
 
-# 4. Seed realistic test data (customers, accounts, transactions)
+# 4. Seed realistic test data (runs as a K8s Job automatically on helm-install,
+#    but run manually if needed)
 make seed
 ```
 
@@ -96,86 +98,91 @@ Then open:
 
 | URL | What you'll see |
 |---|---|
-| http://localhost:3000 | React frontend — login with `alice@example.com` / `password123` |
-| http://localhost:3001 | Grafana — `admin` / `admin` |
-| http://localhost:9090 | Prometheus — explore raw metrics |
+| http://localhost:30080 | React frontend — login with `alice@example.com` / `password123` |
+| http://localhost:30030 | Grafana — `admin` / `admin` |
 
 ---
 
 ## Day-to-Day Commands
 
 ```bash
-# App lifecycle
-make up               # start banking services
-make down             # stop (volumes kept)
-make down-clean       # stop + wipe all data volumes
+# Kubernetes — banking app
+make helm-install          # deploy or upgrade banking app
+make helm-uninstall        # remove banking app from cluster
 
-# Monitoring lifecycle
-make monitoring-up    # start Grafana / Prometheus / Loki / Promtail
-make monitoring-down  # stop monitoring (app keeps running)
-make monitoring-clean # stop monitoring + wipe Prometheus/Loki/Grafana volumes
+# Kubernetes — monitoring
+make monitoring-helm-install    # deploy or upgrade monitoring stack
+make monitoring-helm-uninstall  # remove monitoring from cluster
 
 # Building
-make build            # rebuild all images
-make build-service SVC=transaction-service  # rebuild one service
+make build                         # rebuild all images
+make build-service SVC=fraud-service  # rebuild one service
 
-# Seed data
-make seed             # populate test customers, accounts, transactions
+# Logs (kubectl)
+kubectl logs -n banking -l app=fraud-service -f
+kubectl logs -n monitoring -l app=promtail -f
 
-# Logs
-make logs             # tail all service logs
-make logs SVC=fraud-service  # tail one service
+# Debugging
+make promtail-logs         # tail Promtail — useful for log discovery issues
+make prometheus-forward    # port-forward Prometheus to localhost:9090
 
 # Open Grafana
-make grafana
+make grafana-k8s           # opens http://localhost:30030
+
+# Docker Compose (local dev / fast iteration)
+make up                    # start banking app in Compose
+make down                  # stop Compose app
+make monitoring-up         # start monitoring in Compose
+make monitoring-down       # stop Compose monitoring
+make seed                  # seed test data (works for both K8s and Compose)
 
 # Cleanup
-make clean            # remove all built images
+make clean                 # remove all built images
 ```
 
 ---
 
 ## Generating Signals with Chaos
 
-The chaos service lets you inject faults from the Grafana dashboard, the frontend Chaos Panel, or the API directly.
+The chaos service lets you inject faults from the frontend Chaos Panel or directly via the API.
 
 ### Pre-built Scenarios
 
+Scenarios auto-discover seeded accounts and generate a burst of real transactions — errors appear in Grafana within seconds, no manual traffic generation needed.
+
 ```bash
-# Payment outage — transaction-service returns 50% errors, auto-generates traffic
-curl -X POST http://localhost:8009/chaos/scenarios/payment_outage/trigger
+# Payment outage — transaction-service returns 50% errors
+curl -X POST http://localhost:30000/chaos/scenarios/payment_outage/trigger
 
 # Slow accounts — 3 second latency on all account lookups
-curl -X POST http://localhost:8009/chaos/scenarios/high_latency/trigger
+curl -X POST http://localhost:30000/chaos/scenarios/high_latency/trigger
 
 # Cascade failure — transaction + account both degraded
-curl -X POST http://localhost:8009/chaos/scenarios/cascade_failure/trigger
+curl -X POST http://localhost:30000/chaos/scenarios/cascade_failure/trigger
 
 # Fraud spike — high-value transactions to trigger fraud alerts
-curl -X POST http://localhost:8009/chaos/scenarios/fraud_spike/trigger
+curl -X POST http://localhost:30000/chaos/scenarios/fraud_spike/trigger
 
 # Notification flood — burst of small transactions
-curl -X POST http://localhost:8009/chaos/scenarios/notification_flood/trigger
+curl -X POST http://localhost:30000/chaos/scenarios/notification_flood/trigger
 
-# Clear everything
-curl -X POST http://localhost:8009/chaos/scenarios/clear
+# Clear all chaos
+curl -X POST http://localhost:30000/chaos/scenarios/clear
 ```
 
 ### Manual Injection
 
 ```bash
-# 30% error rate on the ledger service
-curl -X POST http://localhost:8009/chaos/inject \
+# 30% error rate on ledger-service
+curl -X POST http://localhost:30000/chaos/inject \
   -H 'Content-Type: application/json' \
   -d '{"service": "ledger-service", "error_rate": 0.3}'
 
 # 2 second latency on fraud checks
-curl -X POST http://localhost:8009/chaos/inject \
+curl -X POST http://localhost:30000/chaos/inject \
   -H 'Content-Type: application/json' \
   -d '{"service": "fraud-service", "latency_ms": 2000}'
 ```
-
-> Scenarios auto-discover seeded accounts and generate a burst of real transactions so errors appear in Grafana immediately — no manual traffic generation needed.
 
 ---
 
@@ -183,7 +190,7 @@ curl -X POST http://localhost:8009/chaos/inject \
 
 ### Metrics
 
-Every service exposes `/metrics` in Prometheus format via `prometheus-fastapi-instrumentator`. Key metrics:
+Every service exposes `/metrics` in Prometheus format via `prometheus-fastapi-instrumentator`. Key queries:
 
 ```promql
 # Request rate per service
@@ -221,7 +228,7 @@ All services emit structured JSON via [structlog](https://www.structlog.org):
 }
 ```
 
-Promtail ships these from Docker to Loki. Every log line carries `request_id` and `trace_id` so you can correlate logs across services for a single request.
+Promtail ships pod logs to Loki using Kubernetes Service Discovery — it automatically picks up any pod in the `banking` namespace. Every log line carries `request_id` and `trace_id` for cross-service correlation.
 
 Useful LogQL queries in Grafana:
 
@@ -238,19 +245,18 @@ Useful LogQL queries in Grafana:
 
 ### Tracing
 
-OpenTelemetry SDK is wired into every service (FastAPI + HTTPX instrumented). Traces are collected but silently dropped until you point `OTEL_EXPORTER_OTLP_ENDPOINT` at a collector (Tempo, Jaeger, etc.):
+OpenTelemetry SDK is wired into every service (FastAPI + HTTPX instrumented). Traces are silently dropped until you point `OTEL_EXPORTER_OTLP_ENDPOINT` at a collector (Tempo, Jaeger, etc.):
 
 ```yaml
-# In docker-compose.yml, add to any service:
-environment:
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+# In helm/banking/values.yaml:
+otelEndpoint: "http://tempo.monitoring.svc.cluster.local:4318"
 ```
 
 ---
 
 ## Grafana Dashboard
 
-The **Banking Services Overview** dashboard is pre-provisioned — no import needed.
+The **Banking Services Overview** dashboard is pre-provisioned — no import needed. Open http://localhost:30030.
 
 | Panel | What it shows |
 |---|---|
@@ -259,10 +265,10 @@ The **Banking Services Overview** dashboard is pre-provisioned — no import nee
 | Services Up | Count of healthy services (should be 10) |
 | Requests/sec per Service | Per-service throughput time series |
 | Error Rate per Service | Per-service 5xx rate — isolates the broken service |
-| P95 Latency per Service | Tail latency time series — shows latency injection clearly |
+| P95 Latency per Service | Tail latency — shows latency injection clearly |
 | Banking Service Logs | Live log stream from all services |
 
-Datasource UIDs are pinned (`banking-prometheus`, `banking-loki`) so dashboards survive Grafana restarts without breaking.
+Datasource UIDs are pinned (`banking-prometheus`, `banking-loki`) so dashboards survive pod restarts without breaking.
 
 ---
 
@@ -270,56 +276,51 @@ Datasource UIDs are pinned (`banking-prometheus`, `banking-loki`) so dashboards 
 
 ```
 banking/
-├── Makefile                        # all common tasks
-├── docker-compose.yml              # banking app stack
-├── docker-compose.monitoring.yml   # observability stack (separate)
+├── Makefile                          # all common tasks
+├── docker-compose.yml                # banking app (local dev)
+├── docker-compose.monitoring.yml     # monitoring stack (local dev)
 │
-├── base/                           # shared Python base image
+├── base/                             # shared Python base image
 │   ├── Dockerfile
-│   └── requirements.txt            # all shared deps (FastAPI, structlog, OTEL, ...)
+│   └── requirements.txt              # FastAPI, structlog, OTEL, SQLAlchemy, ...
 │
-├── shared/                         # library mounted into every service
-│   ├── observability.py            # logging + tracing + Prometheus wiring
-│   ├── database.py                 # SQLAlchemy setup
-│   ├── chaos.py                    # in-process chaos state store
-│   └── http_client.py              # instrumented HTTPX client
+├── shared/                           # library copied into every service container
+│   ├── observability.py              # logging + tracing + Prometheus wiring
+│   ├── database.py                   # SQLAlchemy setup
+│   ├── chaos.py                      # in-process chaos state store
+│   └── http_client.py                # instrumented HTTPX client
 │
 ├── services/
 │   ├── api-gateway/
 │   ├── auth-service/
 │   ├── account-service/
 │   ├── transaction-service/
-│   └── ...                         # one directory per service
+│   └── ...                           # one directory per service
 │
-├── frontend/                       # React app
-├── seed/                           # seed.py — populates test data
-├── helm/banking/                   # Helm chart for Kubernetes deploy
+├── frontend/                         # React app
+├── seed/                             # seed.py — populates test data
 │
-└── monitoring/
+├── helm/
+│   ├── banking/                      # Helm chart — 10 services + frontend
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   └── templates/
+│   └── monitoring/                   # Helm chart — Prometheus, Loki, Promtail, Grafana
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       ├── dashboards/banking-overview.json
+│       └── templates/
+│           ├── prometheus/
+│           ├── loki/
+│           ├── promtail/             # DaemonSet + RBAC for K8s log discovery
+│           └── grafana/
+│
+└── monitoring/                       # Config files for Docker Compose monitoring
     ├── prometheus/prometheus.yml
     ├── loki/loki-config.yml
     ├── promtail/promtail-config.yml
     └── grafana/provisioning/
-        ├── datasources/datasources.yml
-        └── dashboards/banking-overview.json
 ```
-
----
-
-## Kubernetes (Helm)
-
-```bash
-# Build images first (they need to be accessible to your cluster)
-make build
-
-# Deploy to local cluster (k3d, kind, Docker Desktop K8s)
-make helm-install
-
-# Uninstall
-make helm-uninstall
-```
-
-The Helm chart deploys all 10 services + frontend with resource requests tuned for a laptop cluster (50m CPU / 96Mi RAM per service). Override in `helm/banking/values.yaml`.
 
 ---
 
@@ -335,58 +336,76 @@ The Helm chart deploys all 10 services + frontend with resource requests tuned f
    log = get_logger()
    app = create_app("My Service")
    ```
-3. In the `Dockerfile`, copy shared libs:
+3. In the `Dockerfile`:
    ```dockerfile
    ARG BASE_IMAGE=banking/base:latest
    FROM ${BASE_IMAGE}
    COPY shared/ /app/shared/
    COPY services/my-service/ .
    ```
-4. Add to `docker-compose.yml` and `monitoring/prometheus/prometheus.yml`
-5. Add to `SERVICES` in `Makefile`
+4. Add to `helm/banking/templates/services.yaml` and `helm/banking/values.yaml`
+5. Add a scrape target to `helm/monitoring/templates/prometheus/configmap.yaml`
+6. Add to `SERVICES` in `Makefile`
 
-You get `/health`, `/ready`, `/metrics`, structured logging, and tracing for free.
+You get `/health`, `/ready`, `/metrics`, structured JSON logging, and tracing for free.
 
 ---
 
 ## Connecting to Resolve
 
-Once the stack is running:
+Once the stack is running, install the [Resolve Satellite](https://docs.resolve.ai/resolve-satellite) into the cluster:
 
-1. Point Resolve's Prometheus integration at `http://<your-machine-ip>:9090`
-2. Point Resolve's Loki integration at `http://<your-machine-ip>:3100`
-3. Trigger a chaos scenario and watch Resolve surface the incident from the metrics spike
+```bash
+helm install resolve-satellite <resolve-chart> \
+  --namespace resolve --create-namespace \
+  --values resolve-values.yaml
+```
 
-The `payment_outage` scenario is the most dramatic — it takes transaction-service to ~50% error rate within seconds, which should generate clear signal for alert evaluation.
+Point it at the in-cluster monitoring URLs:
+- Prometheus: `http://prometheus.monitoring.svc.cluster.local:9090`
+- Loki: `http://loki.monitoring.svc.cluster.local:3100`
+
+The `payment_outage` chaos scenario is the most dramatic starting point — transaction-service hits ~50% error rate within seconds, generating clear signal for Resolve to surface.
 
 ---
 
 ## Troubleshooting
 
-**`make up` fails — network not found**
+**Pods stuck in `ImagePullBackOff`**
+
+Images are built locally and not pushed to a registry. Make sure `imagePullPolicy: IfNotPresent` is set (it is, by default) and rebuild:
 ```bash
-make network   # creates the 'banking' Docker network
-make up
+make build && make helm-install
 ```
 
 **Grafana shows "No data"**
-- Check Prometheus targets: http://localhost:9090/targets — all should be `UP`
-- Verify the monitoring stack is running: `docker ps | grep banking`
-- Trigger chaos to generate errors: `curl -X POST http://localhost:8009/chaos/scenarios/payment_outage/trigger`
-
-**Seed fails**
-- Services must be fully started before seeding: `docker-compose ps` — all should be `Up`
-- If data looks corrupt: `make down-clean && make up && make seed`
-
-**Images not found after rebuild**
 ```bash
-make clean     # remove old images
-make build     # rebuild from scratch
-make up
+# Check all 10 Prometheus targets are UP
+make prometheus-forward
+open http://localhost:9090/targets
+
+# Check Promtail is discovering pods
+make promtail-logs
+```
+
+**Seed job failed**
+```bash
+# Check seed job logs
+kubectl logs -n banking -l job-name=banking-seed
+
+# Re-run seed manually (after services are healthy)
+make seed
+```
+
+**Services not ready after install**
+```bash
+kubectl get pods -n banking    # all should be Running
+kubectl get pods -n monitoring # all should be Running
 ```
 
 **Out of disk space**
 ```bash
-docker system prune -f          # remove stopped containers and dangling images
-make monitoring-clean           # wipe monitoring volumes (Prometheus/Loki data)
+docker system prune -f
+kubectl delete pvc --all -n monitoring   # wipes Prometheus/Loki/Grafana data
+make monitoring-helm-install             # recreates PVCs fresh
 ```

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+  labels:
+    app: prometheus
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: api-gateway
+        static_configs:
+          - targets: ['api-gateway.{{ .Values.bankingNamespace }}.svc.cluster.local:8000']
+      - job_name: auth-service
+        static_configs:
+          - targets: ['auth-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8001']
+      - job_name: customer-service
+        static_configs:
+          - targets: ['customer-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8002']
+      - job_name: account-service
+        static_configs:
+          - targets: ['account-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8003']
+      - job_name: transaction-service
+        static_configs:
+          - targets: ['transaction-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8004']
+      - job_name: ledger-service
+        static_configs:
+          - targets: ['ledger-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8005']
+      - job_name: fraud-service
+        static_configs:
+          - targets: ['fraud-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8006']
+      - job_name: notification-service
+        static_configs:
+          - targets: ['notification-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8007']
+      - job_name: reporting-service
+        static_configs:
+          - targets: ['reporting-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8008']
+      - job_name: chaos-service
+        static_configs:
+          - targets: ['chaos-service.{{ .Values.bankingNamespace }}.svc.cluster.local:8009']

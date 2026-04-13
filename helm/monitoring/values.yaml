@@ -1,0 +1,33 @@
+# Namespace where banking app services live — used for Prometheus targets
+# and Promtail namespace filter
+bankingNamespace: banking
+
+prometheus:
+  image: prom/prometheus:v2.51.2
+  retention: 7d
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: ""   # "" = cluster default (local-path on OrbStack)
+
+loki:
+  image: grafana/loki:3.0.0
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+
+promtail:
+  image: grafana/promtail:3.0.0
+
+grafana:
+  image: grafana/grafana:10.4.2
+  adminUser: admin
+  adminPassword: admin
+  storage:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  service:
+    type: NodePort
+    nodePort: 30030

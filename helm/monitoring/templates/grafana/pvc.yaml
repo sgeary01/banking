@@ -1,0 +1,18 @@
+{{- if .Values.grafana.storage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: monitoring
+  labels:
+    app: grafana
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.grafana.storage.size }}
+  {{- if .Values.grafana.storage.storageClass }}
+  storageClassName: {{ .Values.grafana.storage.storageClass }}
+  {{- end }}
+{{- end }}

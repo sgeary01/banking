@@ -1,0 +1,331 @@
+{
+  "uid": "banking-overview",
+  "title": "Banking Services Overview",
+  "schemaVersion": 38,
+  "version": 5,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "label": "Service",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "banking-prometheus"
+        },
+        "query": {
+          "query": "label_values(http_requests_total, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Row 1 - Stats",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "id": 2,
+      "title": "Total Requests (last 5m)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "banking-prometheus"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 10000 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_requests_total[5m]))",
+          "legendFormat": "Total Requests"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Error Rate %",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "banking-prometheus"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum(rate(http_requests_total{status=\"5xx\"}[5m])) or vector(0)) / sum(rate(http_requests_total[5m]))",
+          "legendFormat": "Error Rate %"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Services Up",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "banking-prometheus"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "green", "value": 10 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(up{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"} == 1)",
+          "legendFormat": "Services Up"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Row 2 - Time Series",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "id": 6,
+      "title": "Requests/sec per Service",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "banking-prometheus"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total{job=~\"$service\"}[1m])) by (job)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Error Rate per Service",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "banking-prometheus"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total{status=\"5xx\", job=~\"$service\"}[1m])) by (job)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "P95 Latency per Service",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "banking-prometheus"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"$service\"}[1m])) by (job, le))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Row 3 - Logs",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "title": "Banking Service Logs",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "banking-loki"
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 15 },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "banking-loki"
+          },
+          "expr": "{service=~\".+\"}",
+          "legendFormat": ""
+        }
+      ]
+    }
+  ],
+  "tags": ["banking", "overview"],
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "weekStart": ""
+}

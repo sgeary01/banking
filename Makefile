@@ -9,7 +9,9 @@ SERVICES = api-gateway auth-service customer-service account-service \
         up down \
         monitoring-up monitoring-down \
         seed helm-install helm-uninstall \
-        logs clean grafana network
+        monitoring-helm-install monitoring-helm-uninstall \
+        logs clean grafana grafana-k8s network \
+        promtail-logs prometheus-forward
 
 # ── Network ─────────────────────────────────────────────────────
 ## Create the shared external network (idempotent)
@@ -79,15 +81,37 @@ seed:
 	docker-compose --profile seed run --rm seed
 
 # ── Kubernetes ──────────────────────────────────────────────────
-## Deploy to local K8s via Helm
+## Deploy banking app to K8s via Helm
 helm-install: build
 	helm upgrade --install banking ./helm/banking \
 		--namespace banking --create-namespace \
 		--values ./helm/banking/values.yaml
 
-## Uninstall from K8s
+## Uninstall banking app from K8s
 helm-uninstall:
 	helm uninstall banking --namespace banking
+
+## Deploy monitoring stack to K8s (Prometheus + Loki + Promtail + Grafana)
+monitoring-helm-install:
+	helm upgrade --install monitoring ./helm/monitoring \
+		--namespace monitoring --create-namespace \
+		--values ./helm/monitoring/values.yaml
+
+## Uninstall monitoring stack from K8s
+monitoring-helm-uninstall:
+	helm uninstall monitoring --namespace monitoring
+
+## Open Grafana running in K8s (NodePort 30030)
+grafana-k8s:
+	open http://localhost:30030
+
+## Tail Promtail logs — useful for debugging log discovery
+promtail-logs:
+	kubectl logs -n monitoring -l app=promtail -f --tail=50
+
+## Port-forward Prometheus to localhost:9090 for direct access
+prometheus-forward:
+	kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
 # ── Ops ─────────────────────────────────────────────────────────
 ## Tail logs — all services, or one: make logs SVC=auth-service

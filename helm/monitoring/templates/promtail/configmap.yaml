@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: promtail-config
+  namespace: monitoring
+  labels:
+    app: promtail
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  promtail-config.yml: |
+    server:
+      http_listen_port: 9080
+      grpc_listen_port: 0
+
+    positions:
+      filename: /run/promtail/positions.yaml
+
+    clients:
+      - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+    scrape_configs:
+      - job_name: kubernetes-pods-banking
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Values.bankingNamespace }}
+
+        relabel_configs:
+          # Only collect from Running pods
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: keep
+            regex: Running
+
+          # Map the app label to a 'service' label (matches our pipeline selector)
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: service
+
+          # Keep pod name for debugging
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+          # Keep container name
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+
+          # Build the log file path from pod UID and container name
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: /
+            target_label: __path__
+            replacement: /var/log/pods/*$1*/$2/*.log
+
+        pipeline_stages:
+          # Parse structlog JSON — identical to the Docker Compose pipeline
+          - match:
+              selector: '{service=~".+"}'
+              stages:
+                - json:
+                    expressions:
+                      level: level
+                      log_msg: event
+                      timestamp: timestamp
+                      service_name: service
+                      request_id: request_id
+                      trace_id: trace_id
+                - labels:
+                    level:
+                - output:
+                    source: log_msg
