@@ -11,7 +11,8 @@ SERVICES = api-gateway auth-service customer-service account-service \
         seed helm-install helm-uninstall \
         monitoring-helm-install monitoring-helm-uninstall \
         logs clean grafana grafana-k8s network \
-        promtail-logs prometheus-forward
+        promtail-logs prometheus-forward \
+        k3d-up k3d-down k3d-rebuild k3d-import
 
 # ── Network ─────────────────────────────────────────────────────
 ## Create the shared external network (idempotent)
@@ -100,6 +101,33 @@ monitoring-helm-install:
 ## Uninstall monitoring stack from K8s
 monitoring-helm-uninstall:
 	helm uninstall monitoring --namespace monitoring
+
+# ── k3d ─────────────────────────────────────────────────────────
+## Full bring-up: create cluster, build images, import, helm install
+k3d-up:
+	./scripts/bootstrap-k3d.sh
+
+## Tear down the k3d cluster entirely
+k3d-down:
+	./scripts/bootstrap-k3d.sh --down
+
+## Rebuild all images and re-import into k3d (no cluster recreation)
+k3d-rebuild: build
+	k3d image import \
+		$(REGISTRY)/base:$(TAG) \
+		$(foreach svc,$(SERVICES),$(REGISTRY)/$(svc):$(TAG)) \
+		$(REGISTRY)/frontend:$(TAG) \
+		-c banking
+	kubectl rollout restart deployment -n banking
+	kubectl rollout restart deployment -n monitoring
+
+## Import pre-built images into k3d without rebuilding
+k3d-import:
+	k3d image import \
+		$(REGISTRY)/base:$(TAG) \
+		$(foreach svc,$(SERVICES),$(REGISTRY)/$(svc):$(TAG)) \
+		$(REGISTRY)/frontend:$(TAG) \
+		-c banking
 
 ## Open Grafana running in K8s (NodePort 30030)
 grafana-k8s:
