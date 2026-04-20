@@ -36,13 +36,9 @@ data:
           - labels:
               service:
 
-          # Unwrap Docker JSON log format: {"log":"<actual line>","stream":"...","time":"..."}
-          - json:
-              expressions:
-                output: log
-                stream: stream
-          - output:
-              source: output
+          # Unwrap CRI log format used by k3s/containerd:
+          # <timestamp> <stream> <flags> <actual log content>
+          - cri: {}
 
           # Parse structlog JSON for backend services (skip frontend nginx logs)
           - match:
