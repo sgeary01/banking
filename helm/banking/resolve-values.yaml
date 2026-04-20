@@ -4,3 +4,11 @@ ingest:
 
 clusterName: banking
 environment: smg-production
+
+integrations:
+  grafana:
+    type: grafana
+    secretName: resolve-grafana
+    connection:
+      url: http://grafana.monitoring.svc.cluster.local:3000
+      alertScrapingEnabled: true
