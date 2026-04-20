@@ -40,17 +40,13 @@ data:
           # <timestamp> <stream> <flags> <actual log content>
           - cri: {}
 
-          # Parse structlog JSON for backend services (skip frontend nginx logs)
+          # Extract labels from structlog JSON for backend services (skip frontend nginx logs)
+          # Keep the full JSON as the log line so LogQL | json works downstream
           - match:
               selector: '{namespace="{{ .Values.bankingNamespace }}", service!~"frontend.*"}'
               stages:
                 - json:
                     expressions:
                       level: level
-                      log_msg: event
-                      request_id: request_id
-                      trace_id: trace_id
                 - labels:
                     level:
-                - output:
-                    source: log_msg
