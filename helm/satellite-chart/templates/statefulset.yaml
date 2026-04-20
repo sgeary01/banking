@@ -1,0 +1,328 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "satellite.fullname" . }}
+  labels:
+    {{- include "satellite.labels" . | nindent 4 }}
+  annotations:
+    {{- include "satellite.annotations" . | nindent 4 }}
+spec:
+  serviceName: {{ include "satellite.fullname" . }}
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "satellite.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "satellite.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "satellite.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: healthcheck
+            {{- if .Values.livenessProbe.initialDelaySeconds }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            {{- end }}
+            {{- if .Values.livenessProbe.periodSeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            {{- end }}
+            {{- if .Values.livenessProbe.timeoutSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            {{- end }}
+            {{- if .Values.livenessProbe.failureThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            {{- end }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: healthcheck
+            {{- if .Values.readinessProbe.initialDelaySeconds }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            {{- end }}
+            {{- if .Values.readinessProbe.periodSeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            {{- end }}
+            {{- if .Values.readinessProbe.timeoutSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            {{- end }}
+            {{- if .Values.readinessProbe.failureThreshold }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: healthcheck
+              containerPort: {{ .Values.service.healthcheck.port }}
+              protocol: TCP
+            - name: dnstap
+              containerPort: {{ include "dnstap.port" . }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CDL_DOMAIN
+              value: {{ .Values.ingest.host }}
+            {{- if .Values.ingest.providerSecretName }}
+            - name: INGEST_TOKEN_PATH
+              value: {{ (print "/mnt/secrets-store/" .Values.ingest.providerSecretName )}}
+            {{- else }}
+            - name: INGEST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (print (include "satellite.fullname" $) "-token") .Values.ingest.tokenSecretName }}
+                  key: token
+            {{- end }}
+            - name: NODE_OPTIONS
+              value: "{{ include "convertK8sMemoryToNodeOption" (list .Values.resources.limits.memory .Values.heap.ratio) }}"
+            - name: SATELLITE_ENV
+              value: {{ default "default" .Values.environment }}
+            {{- if .Values.clusterName }}
+            - name: SATELLITE_GROUP_ID
+              value: {{ .Values.clusterName | quote }}
+            {{- end }}
+            - name: SATELLITE_IMAGE_TAG
+              value: {{ default .Chart.AppVersion .Values.image.tag }}
+            - name: SATELLITE_HELM_CHART_VERSION
+              value: {{ .Chart.Version }}
+            - name: HEALTHCHECK_PORT
+              value: {{ .Values.service.healthcheck.port | quote }}
+            - name: DNS_TAP_PORT
+              value: {{ include "dnstap.port" . | quote }}
+            - name: GIT_INTEGRATION_DATA_PATH
+              value: /integrationData/git
+            - name: JOB_LOCK_DIR
+              value: /var/run/resolve-locks
+            {{- if .Values.httpAgentCertificate }}
+            - name: HTTP_AGENT_CERTIFICATE
+              value: {{ .Values.httpAgentCertificate | quote }}
+            {{- end }}
+            {{- if .Values.httpApiClientDisableSslValidation }}
+            - name: HTTP_API_CLIENT_DISABLE_SSL_VALIDATION
+              value: {{ .Values.httpApiClientDisableSslValidation | quote }}
+            {{- end }}
+            {{- if .Values.httpApiClientProxyUrl }}
+            - name: HTTP_API_CLIENT_PROXY_URL
+              value: {{ .Values.httpApiClientProxyUrl | quote }}
+            {{- end }}
+            {{- if .Values.httpApiClientForceHttpsTunnel }}
+            - name: process.env.HTTP_API_CLIENT_FORCE_HTTPS_TUNNEL
+              value: {{ .Values.httpApiClientForceHttpsTunnel | quote }}
+            {{- end }}
+            {{- if .Values.pyroscope }}
+            {{- if and .Values.pyroscope.enabled .Values.pyroscope.secretName }}
+            - name: PYROSCOPE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pyroscope.secretName | quote }}
+                  key: url
+                  optional: true
+            - name: PYROSCOPE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pyroscope.secretName | quote }}
+                  key: username
+                  optional: true
+            - name: PYROSCOPE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pyroscope.secretName | quote }}
+                  key: password
+                  optional: true
+            {{- end }}
+            {{- end }}
+            {{- with .Values.env }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- . | toYaml | nindent 12 }}
+            {{- end }}
+          command: ["/usr/bin/tini", "--"]
+          args:
+            - node
+            - --import
+            - ./out/instrumentation/10_logs.js
+            - --import
+            - ./out/instrumentation/20_metrics.js
+            - ./out/bundled.js
+          volumeMounts:
+            - name: integrations-config
+              mountPath: /etc/config/integrations.yaml
+              subPath: integrations.yaml
+              readOnly: true
+            - name: integrations-config
+              mountPath: /etc/config/satelliteConfig.yaml
+              subPath: satelliteConfig.yaml
+              readOnly: true
+            {{- /* Assumes there are no secrets on the default integrations */}}
+            {{- range $key, $value := .Values.integrations }}
+            {{- if (or $value.secret $value.secretName) }}
+            - name: {{ (lower $value.type) }}-{{ (lower $key) }}-secrets
+              mountPath: {{ (print "/etc/secrets/" $key )}}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- if include "satellite.hasGitIntegration" . | eq "true" }}
+            - name: git-integration-data
+              mountPath: /integrationData/git
+            - name: tmp
+              mountPath: /tmp/tmp-resolve
+            {{- end }}
+            - name: job-locks
+              mountPath: /var/run/resolve-locks
+            {{- if .Values.externalSecretsStore }}
+            - name: {{ print (include "satellite.fullname" $) "-external-secrets-store" }}
+              mountPath: "/mnt/secrets-store/"
+              readOnly: true
+            {{- end }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- /* Check for httpApiClientProxyUrl in values with a single condition */}}
+        {{- $hasProxyUrl := false }}
+        {{- if .Values.httpApiClientProxyUrl }}
+            {{- $hasProxyUrl = true }}
+        {{- end }}
+        {{- if $hasProxyUrl }}
+        # HTTP proxy container - only created when HTTP_API_CLIENT_PROXY_URL environment variable is defined and not empty
+        - name: sidecar-proxy
+          image: "{{ .Values.sidecarProxy.container.image.repository }}:{{ .Values.sidecarProxy.container.image.tag }}"
+          imagePullPolicy: {{ .Values.sidecarProxy.container.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.sidecarProxy.container.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.sidecarProxy.container.resources | nindent 12 }}
+          env:
+            # Basic configuration
+            - name: PROXY_PORT
+              value: {{ default 8080 .Values.sidecarProxy.container.port | quote }}
+            - name: ENABLE_REDACTION
+              value: {{ default "true" .Values.sidecarProxy.enableRedaction | quote }}
+            # Secret resolution configuration
+            {{- if and (hasKey .Values "sidecarProxy") (hasKey .Values.sidecarProxy "secretsConfig") }}
+            - name: SECRETS_MOUNT_PATH
+              value: {{ default "/etc/secrets" .Values.sidecarProxy.secretsConfig.mountPath | quote }}
+            {{- end }}
+            # Add environment variables from secretKeyRefs
+            {{- if and (hasKey .Values "sidecarProxy") (hasKey .Values.sidecarProxy "secretsConfig") (hasKey .Values.sidecarProxy.secretsConfig "secretKeyRefs") }}
+            {{- range .Values.sidecarProxy.secretsConfig.secretKeyRefs }}
+            - name: {{ .envName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: {{ .secretKey }}
+            {{- end }}
+            {{- end }}
+            # Add any additional environment variables
+            {{- if and (hasKey .Values "sidecarProxy") (hasKey .Values.sidecarProxy "env") }}
+            {{- range .Values.sidecarProxy.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          # Volume mounts for secrets - ONLY for the sidecar container
+          {{- if and (hasKey .Values "sidecarProxy") (hasKey .Values.sidecarProxy "secretsConfig") (hasKey .Values.sidecarProxy.secretsConfig "secretMounts") }}
+          volumeMounts:
+            {{- range .Values.sidecarProxy.secretsConfig.secretMounts }}
+            - name: sidecar-{{ .name }}
+              # The mountPath should be the full path where the secret will be available
+              # For example, if the secret name is "my-secret", and we want it to be available at /etc/secrets/my-secret,
+              # then mountPath should be "/etc/secrets/my-secret"
+              mountPath: {{ .mountPath }}
+              readOnly: true
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      volumes:
+        {{- /* Satellite volumes */}}
+        - name: integrations-config
+          configMap:
+            name: {{ include "satellite.fullname" . }}-integrations-config
+        {{- /* Assumes there are no secrets on the default integrations */}}
+        {{- range $key, $value := .Values.integrations }}
+        {{- if (or $value.secret $value.secretName) }}
+        - name: {{ (lower $value.type) }}-{{ (lower $key) }}-secrets
+          secret:
+            secretName: {{ default (print (include "satellite.fullname" $) "-" $key) $value.secretName }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.externalSecretsStore }}
+        - name: {{ print (include "satellite.fullname" $) "-external-secrets-store" }}
+          csi:
+            driver: {{ default "secrets-store.csi.k8s.io" .Values.externalSecretsStore.driver }}
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Values.externalSecretsStore.secretProviderClass }}
+        {{- end }}
+        {{- if and (include "satellite.hasGitIntegration" . | eq "true") (eq .Values.gitVolume.type "emptyDir") }}
+        - name: git-integration-data
+          emptyDir:
+            {{- $_ := required "gitVolume must define 'emptyDir' when type is emptyDir" .Values.gitVolume.emptyDir }}
+            {{- toYaml .Values.gitVolume.emptyDir | nindent 12 }}
+        {{- end }}
+        - name: job-locks
+          emptyDir: {}
+        {{- if include "satellite.hasGitIntegration" . | eq "true" }}
+        # Temp directory for git worktrees and credential files (uses node ephemeral storage)
+        - name: tmp
+          emptyDir:
+            sizeLimit: 5Gi
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if and (include "satellite.hasGitIntegration" . | eq "true") (eq .Values.gitVolume.type "persistentVolumeClaim") }}
+  volumeClaimTemplates:
+    - metadata:
+        name: git-integration-data
+        {{- with .Values.gitVolume.persistentVolumeClaim.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        {{- $_ := required "gitVolume.persistentVolumeClaim.spec must be defined when type is persistentVolumeClaim" .Values.gitVolume.persistentVolumeClaim.spec }}
+        {{- toYaml .Values.gitVolume.persistentVolumeClaim.spec | nindent 8 }}
+  {{- end }}

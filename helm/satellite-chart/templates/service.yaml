@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "satellite.fullname" . }}
+  labels:
+    {{- include "satellite.labels" . | nindent 4 }}
+  annotations:
+    {{- include "satellite.annotations" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  {{- if .Values.dnstap }}
+  {{- if .Values.dnstap.staticIP }}
+  clusterIP: {{ .Values.dnstap.staticIP }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - port: {{ include "dnstap.port" . }}
+      targetPort: dnstap
+      protocol: TCP
+      name: dnstap
+  selector:
+    {{- include "satellite.selectorLabels" . | nindent 4 }}

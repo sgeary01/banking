@@ -1,0 +1,149 @@
+# Default values for satellite
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+ingest:
+  host: receiver.app0.resolve.ai
+
+
+# Default values for the published chart.
+image:
+  repository: resolveaihq/satellite
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  healthcheck:
+    port: 13131
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+
+# Optional init containers (used in tests)
+initContainers: []
+# Example:
+#initContainers:
+#  - name: df-git
+#    image: alpine:latest
+#    command: ["/bin/sh", "-c"]
+#    args: ["df /integrationData/git/"]
+#    volumeMounts:
+#      - name: git-integration-data
+#        mountPath: /integrationData/git
+
+podAnnotations: {}
+podLabels: {}
+
+replicaCount: 1
+
+environment: "default"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+heap:
+  ratio: "0.8"
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 8Gi
+  requests:
+    cpu: 1000m
+    memory: 8Gi
+
+# Uncomment the following lines to enable the sidecar proxy
+# httpApiClientProxyUrl: "http://localhost:8080"
+#
+# sidecarProxy:
+#   # Proxy container configuration
+#   container:
+#     image:
+#       repository: clouddatalabs/security-sidecar
+#       tag: latest
+#       pullPolicy: Always
+#     port: 8080
+#     resources:
+#       limits:
+#         cpu: 1
+#         memory: 8Gi
+#       requests:
+#         cpu: 1
+#         memory: 8Gi
+#
+
+defaultIntegrationsEnabled: true
+
+# Default integrations
+defaultIntegrations:
+  k8s:
+    type: kubernetes
+    create: true
+    connection:
+      inferApplications:
+        enabled: true
+        applicationNameJsonPaths: []
+      ignoreExternalIPs: true
+      enableAuditLogging: true
+
+  
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Config override controls whether Resolve SaaS can override satellite configuration
+# Default: true (enabled)
+configOverride: true
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  # options are debug, info, warn, error
+  - name: LOG_LEVEL
+    value: "info"
+  - name: LOG_TELEMETRY_LEVEL
+    value: "info"
+  - name: LOG_TELEMETRY_ENABLED
+    value: "true"
+  - name: LOG_TELEMETRY_MAX_BUFFER_SIZE
+    value: "1000"
+  - name: SERVICE_NAME
+    value: "svc-satellite"
+
+
+# Git integration volume configuration (auto-enabled when git integration exists)
+gitVolume:
+  type: emptyDir # or persistentVolumeClaim
+
+  emptyDir:
+    sizeLimit: 10Gi
+    # medium: ""# Leave empty for node disk, or "Memory" for tmpfs RAM disk
+
+  persistentVolumeClaim:
+    annotations: {}
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Gi

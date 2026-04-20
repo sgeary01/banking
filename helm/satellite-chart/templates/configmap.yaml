@@ -1,0 +1,143 @@
+{{/*
+  This generates the integrations config map for the satellite.
+
+  The generated configmap serves as the template for integration configuration for the running satellite.
+
+  There are two sources for integration configuration in the helm values. The first is the defaultIntegrations which
+  is auto-populated with default integrations like kubernetes. The second is the integrations which is a user defined.
+
+  If the user defines an integration with a matching `type` as a default integration, the default integration is ignored.
+*/}}
+{{/*
+  Always create this ConfigMap since we need it for satelliteConfig.yaml even if no integrations are defined
+*/}}
+{{- $inferEnabled := true }}
+{{- $inferAppPaths := list }}
+{{- if hasKey .Values "inferApplications" }}
+  {{- if typeIs "bool" .Values.inferApplications }}
+    {{- $inferEnabled = .Values.inferApplications }}
+  {{- else if typeIs "map[string]interface {}" .Values.inferApplications }}
+    {{- $inferEnabled = .Values.inferApplications.enabled | default true }}
+    {{- $inferAppPaths = .Values.inferApplications.applicationNameJsonPaths | default list }}
+  {{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "satellite.fullname" . }}-integrations-config
+  labels:
+    {{- include "satellite.labels" . | nindent 4 }}
+  annotations:
+    {{- include "satellite.annotations" . | nindent 4 }}
+data:
+  integrations.yaml: |
+    {{- if (or .Values.integrations (and .Values.defaultIntegrationsEnabled .Values.defaultIntegrations)) }}
+    {{- if (and .Values.defaultIntegrationsEnabled .Values.defaultIntegrations) }}
+      {{- range $key, $value := .Values.defaultIntegrations }}
+        {{- $skip := false }}
+        {{- if $.Values.integrations }}
+          {{- range $ikey, $ivalue := $.Values.integrations }}
+            {{- if eq $value.type $ivalue.type }}
+              {{- $skip = true }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+        {{- if not $skip }}
+    {{ $key }}:
+      {{- if (or $value.secret $value.secretName) }}
+      secretDir: {{ (print "/etc/secrets/" $key) }}
+      {{- else if $value.providerSecretName }}
+      secretFilePath: {{ (print "/mnt/secrets-store/" $value.providerSecretName) }}
+      {{- end }}
+      create: {{ default false $value.create }}
+      {{- if not $value.type }}
+        {{fail (print "integrations." $key ".type is required")}}
+      {{- end }}
+      type: {{ $value.type }}
+      {{- if $value.connection }}
+      connection:
+        {{- toYaml $value.connection | nindent 8 }}
+      {{- end }}
+      {{- if hasKey $value "clusterScoped" }}
+      clusterScoped: {{ $value.clusterScoped }}
+      {{- end }}
+      {{- if eq $value.type "kubernetes" }}
+      inferApplications:
+        enabled: {{ $inferEnabled }}
+        {{- if $inferAppPaths }}
+        applicationNameJsonPaths:
+          {{- range $path := $inferAppPaths }}
+          - {{ $path }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.integrations }}
+      {{- range $key, $value := .Values.integrations }}
+    {{ $key }}:
+      {{- if (or $value.secret $value.secretName) }}
+      secretDir: {{ (print "/etc/secrets/" $key) }}
+      {{- else if $value.providerSecretName }}
+      secretFilePath: {{ (print "/mnt/secrets-store/" $value.providerSecretName) }}
+      {{- end }}
+      create: {{ default false $value.create }}
+      {{- if not $value.type }}
+        {{fail (print "integrations." $key ".type is required")}}
+      {{- end }}
+      type: {{ $value.type }}
+      {{- if $value.connection }}
+      connection:
+        {{- toYaml $value.connection | nindent 8 }}
+      {{- end }}
+      {{- if $value.httpAgentCertificate}}
+      httpAgentCertificate: |
+        {{- $cert := $value.httpAgentCertificate | default "" }}
+        {{- if $cert }}
+        {{- $cert | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if $value.httpAgentClientCert}}
+      httpAgentClientCert: |
+        {{- $clientCert := $value.httpAgentClientCert | default "" }}
+        {{- if $clientCert }}
+        {{- $clientCert | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if $value.httpAgentClientKey}}
+      httpAgentClientKey: |
+        {{- $clientKey := $value.httpAgentClientKey | default "" }}
+        {{- if $clientKey }}
+        {{- $clientKey | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if $value.httpAgentCertificatePath}}
+      httpAgentCertificatePath: {{ $value.httpAgentCertificatePath }}
+      {{- end }}
+      {{- if $value.httpAgentClientCertPath}}
+      httpAgentClientCertPath: {{ $value.httpAgentClientCertPath }}
+      {{- end }}
+      {{- if $value.httpAgentClientKeyPath}}
+      httpAgentClientKeyPath: {{ $value.httpAgentClientKeyPath }}
+      {{- end }}
+      {{- if hasKey $value "clusterScoped" }}
+      clusterScoped: {{ $value.clusterScoped }}
+      {{- end }}
+      {{- if eq $value.type "kubernetes" }}
+      inferApplications:
+        enabled: {{ $inferEnabled }}
+        {{- if $inferAppPaths }}
+        applicationNameJsonPaths:
+          {{- range $path := $inferAppPaths }}
+          - {{ $path }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- else }}
+    # No integrations defined - empty configuration
+    {{- end }}
+  satelliteConfig.yaml: |
+    configOverride: {{ .Values.configOverride }}

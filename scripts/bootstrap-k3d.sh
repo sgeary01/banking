@@ -26,14 +26,19 @@ success() { echo -e "${GREEN}✓${RESET} $*"; }
 warn()    { echo -e "${YELLOW}⚠${RESET}  $*"; }
 die()     { echo -e "${RED}✗${RESET} $*" >&2; exit 1; }
 
+# ── Resolve repo root ──────────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "$REPO_ROOT"
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 check_deps() {
   local missing=()
-  for cmd in docker k3d helm kubectl; do
+  for cmd in docker k3d helm kubectl curl jq; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
-    die "Missing required tools: ${missing[*]}\n  Install k3d:   brew install k3d\n  Install helm:  brew install helm"
+    die "Missing required tools: ${missing[*]}\n  Install k3d:   brew install k3d\n  Install helm:  brew install helm\n  Install jq:    brew install jq"
   fi
   success "All prerequisites found"
 }
@@ -57,10 +62,16 @@ fi
 SKIP_BUILD=false
 [[ "${1:-}" == "--no-build" ]] && SKIP_BUILD=true
 
-# ── Resolve repo root ──────────────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-cd "$REPO_ROOT"
+# ── Load .env ─────────────────────────────────────────────────────────────────
+ENV_FILE="${REPO_ROOT}/.env"
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  set -a; source "$ENV_FILE"; set +a
+  success "Loaded .env"
+else
+  warn ".env not found — Resolve satellite will be skipped"
+  warn "Copy .env.example to .env and fill in your token to enable Resolve"
+fi
 
 # ── Pre-flight ─────────────────────────────────────────────────────────────────
 info "Checking prerequisites"
@@ -147,15 +158,77 @@ kubectl wait --for=condition=ready pod \
   --all -n monitoring --timeout=120s
 success "All monitoring pods ready"
 
+# ── Resolve satellite ──────────────────────────────────────────────────────────
+if [[ -z "${RESOLVE_INGEST_TOKEN:-}" ]]; then
+  warn "RESOLVE_INGEST_TOKEN not set — skipping Resolve satellite setup"
+else
+  info "Creating Resolve ingest token secret"
+  kubectl create secret generic resolve-ingest-token \
+    --from-literal=token="${RESOLVE_INGEST_TOKEN}" \
+    --namespace default \
+    --dry-run=client -o yaml | kubectl apply -f -
+  success "resolve-ingest-token secret applied"
+
+  # Wait for Grafana to be reachable before creating service account
+  info "Waiting for Grafana API to be reachable"
+  for i in $(seq 1 30); do
+    if curl -sf -u admin:admin http://localhost:30030/api/health &>/dev/null; then
+      break
+    fi
+    [[ $i -eq 30 ]] && die "Grafana did not become reachable after 60s"
+    sleep 2
+  done
+  success "Grafana is reachable"
+
+  info "Creating Grafana service account and token"
+  # Create (or re-use) service account
+  SA_RESPONSE=$(curl -sf -X POST http://localhost:30030/api/serviceaccounts \
+    -H "Content-Type: application/json" \
+    -u admin:admin \
+    -d '{"name":"resolve-satellite","role":"Viewer"}' 2>/dev/null || true)
+
+  # If SA already exists, fetch it by name
+  if echo "$SA_RESPONSE" | jq -e '.id' &>/dev/null; then
+    SA_ID=$(echo "$SA_RESPONSE" | jq -r '.id')
+  else
+    SA_ID=$(curl -sf "http://localhost:30030/api/serviceaccounts/search?query=resolve-satellite" \
+      -u admin:admin | jq -r '.serviceAccounts[0].id')
+  fi
+
+  # Generate a fresh token
+  TOKEN_RESPONSE=$(curl -sf -X POST "http://localhost:30030/api/serviceaccounts/${SA_ID}/tokens" \
+    -H "Content-Type: application/json" \
+    -u admin:admin \
+    -d '{"name":"resolve-token"}')
+  GRAFANA_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.key')
+
+  kubectl create secret generic resolve-grafana \
+    --from-literal=apiToken="${GRAFANA_TOKEN}" \
+    --namespace default \
+    --dry-run=client -o yaml | kubectl apply -f -
+  success "resolve-grafana secret applied"
+
+  info "Deploying Resolve satellite (Helm)"
+  helm upgrade --install resolve-satellite ./helm/satellite-chart \
+    --namespace default \
+    --values ./helm/banking/resolve-values.yaml \
+    --wait --timeout 3m
+  success "Resolve satellite deployed"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════╗${RESET}"
 echo -e "${GREEN}${BOLD}║     Banking O11y Demo — Ready!           ║${RESET}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════╝${RESET}"
 echo ""
-echo -e "  ${BOLD}Frontend${RESET}   →  http://localhost:30080"
+echo -e "  ${BOLD}Frontend${RESET}    →  http://localhost:30080"
 echo -e "  ${BOLD}API Gateway${RESET} →  http://localhost:30000/docs"
-echo -e "  ${BOLD}Grafana${RESET}    →  http://localhost:30030  (admin / admin)"
+echo -e "  ${BOLD}Grafana${RESET}     →  http://localhost:30030  (admin / admin)"
 echo ""
-echo -e "  Login with: alice@example.com / password123"
+echo -e "  Login: alice@example.com / password123"
 echo ""
+if [[ -n "${RESOLVE_INGEST_TOKEN:-}" ]]; then
+  echo -e "  ${BOLD}Resolve satellite${RESET} → connected to dev0.resolve.ai"
+  echo ""
+fi
