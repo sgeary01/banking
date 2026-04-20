@@ -214,6 +214,19 @@ else
     --values ./helm/banking/resolve-values.yaml \
     --wait --timeout 3m
   success "Resolve satellite deployed"
+
+  # ── CoreDNS dnstap ──────────────────────────────────────────────────────────
+  info "Configuring CoreDNS dnstap → satellite"
+  SATELLITE_IP=$(kubectl get svc resolve-satellite-satellite-chart \
+    -n default -o jsonpath='{.spec.clusterIP}')
+  kubectl patch configmap coredns -n kube-system --type merge -p "{
+    \"data\": {
+      \"Corefile\": \".:53 {\\n    errors\\n    health\\n    ready\\n    kubernetes cluster.local in-addr.arpa ip6.arpa {\\n      pods insecure\\n      fallthrough in-addr.arpa ip6.arpa\\n    }\\n    hosts /etc/coredns/NodeHosts {\\n      ttl 60\\n      reload 15s\\n      fallthrough\\n    }\\n    prometheus :9153\\n    dnstap tcp://${SATELLITE_IP}:4444 full\\n    cache 30\\n    loop\\n    reload\\n    loadbalance\\n    import /etc/coredns/custom/*.override\\n    forward . /etc/resolv.conf\\n}\\nimport /etc/coredns/custom/*.server\\n\"
+    }
+  }"
+  kubectl rollout restart deployment/coredns -n kube-system
+  kubectl rollout status deployment/coredns -n kube-system --timeout=60s
+  success "CoreDNS dnstap configured → ${SATELLITE_IP}:4444"
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────
