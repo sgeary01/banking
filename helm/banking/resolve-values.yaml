@@ -1,0 +1,6 @@
+ingest:
+  tokenSecretName: resolve-ingest-token
+  host: receiver.dev0.resolve.ai
+
+clusterName: banking
+environment: smg-production
