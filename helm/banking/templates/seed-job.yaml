@@ -1,36 +1,54 @@
 {{- if .Values.seed.enabled }}
-apiVersion: batch/v1
-kind: Job
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: banking-seed
+  name: banking-seed-script
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "5"
-    "helm.sh/hook-delete-policy": hook-succeeded
+data:
+  seed.py: |
+    {{ .Files.Get "seed/seed.py" | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-seeder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: banking-seeder
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: banking-seeder
   template:
+    metadata:
+      labels:
+        app: banking-seeder
     spec:
-      restartPolicy: OnFailure
       initContainers:
-        # Wait for auth-service to be ready before seeding
         - name: wait-for-services
           image: curlimages/curl:latest
           command:
             - sh
             - -c
             - |
-              echo "Waiting for services…"
+              echo "Waiting for services to be ready..."
               until curl -sf http://auth-service:8001/health; do sleep 3; done
               until curl -sf http://customer-service:8002/health; do sleep 3; done
               until curl -sf http://account-service:8003/health; do sleep 3; done
               until curl -sf http://transaction-service:8004/health; do sleep 3; done
               echo "All services ready."
       containers:
-        - name: seed
+        - name: seeder
           image: {{ .Values.seed.image }}
           imagePullPolicy: IfNotPresent
-          command: ["python", "/seed/seed.py"]
+          command:
+            - sh
+            - -c
+            - |
+              python /seed/seed.py
+              echo "Seed complete — sleeping."
+              sleep infinity
           env:
             - name: AUTH_SERVICE_URL
               value: "http://auth-service:8001"
@@ -43,17 +61,15 @@ spec:
           volumeMounts:
             - name: seed-script
               mountPath: /seed
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
       volumes:
         - name: seed-script
           configMap:
             name: banking-seed-script
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: banking-seed-script
-  namespace: {{ .Release.Namespace }}
-data:
-  seed.py: |
-    {{ .Files.Get "seed/seed.py" | nindent 4 }}
 {{- end }}
