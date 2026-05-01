@@ -20,6 +20,11 @@ loki:
 promtail:
   image: grafana/promtail:3.0.0
 
+alertmanager:
+  image: prom/alertmanager:v0.27.0
+  service:
+    nodePort: 30093
+
 grafana:
   image: grafana/grafana:10.4.2
   adminUser: admin

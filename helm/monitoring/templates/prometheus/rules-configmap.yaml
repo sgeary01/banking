@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+  labels:
+    app: prometheus
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  banking-rules.yml: |
+    groups:
+      - name: banking.availability
+        interval: 15s
+        rules:
+          - alert: ServiceDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ "{{" }} $labels.job {{ "}}" }} is down"
+              description: "{{ "{{" }} $labels.job {{ "}}" }} has been unreachable for more than 1 minute."
+
+      - name: banking.errors
+        interval: 15s
+        rules:
+          - alert: HighErrorRate
+            expr: |
+              (
+                sum by (job) (rate(http_requests_total{status="5xx"}[2m]))
+                /
+                sum by (job) (rate(http_requests_total[2m]))
+              ) > 0.05
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High error rate on {{ "{{" }} $labels.job {{ "}}" }}"
+              description: "{{ "{{" }} $labels.job {{ "}}" }} error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} over the last 2 minutes."
+
+          - alert: CriticalErrorRate
+            expr: |
+              (
+                sum by (job) (rate(http_requests_total{status="5xx"}[2m]))
+                /
+                sum by (job) (rate(http_requests_total[2m]))
+              ) > 0.25
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Critical error rate on {{ "{{" }} $labels.job {{ "}}" }}"
+              description: "{{ "{{" }} $labels.job {{ "}}" }} error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} — more than 25% of requests failing."
+
+      - name: banking.latency
+        interval: 15s
+        rules:
+          - alert: HighLatency
+            expr: |
+              histogram_quantile(0.95,
+                sum by (job, le) (rate(http_request_duration_seconds_bucket[2m]))
+              ) > 2
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High latency on {{ "{{" }} $labels.job {{ "}}" }}"
+              description: "{{ "{{" }} $labels.job {{ "}}" }} P95 latency is {{ "{{" }} $value | humanizeDuration {{ "}}" }} — above 2s threshold."
+
+      - name: banking.fraud
+        interval: 15s
+        rules:
+          - alert: FraudSpikeDetected
+            expr: |
+              sum(rate(http_requests_total{job="fraud-service", status="2xx"}[5m])) > 0.5
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Elevated fraud check rate"
+              description: "Fraud service is processing {{ "{{" }} $value | humanize {{ "}}" }} checks/sec — potential fraud spike in progress."

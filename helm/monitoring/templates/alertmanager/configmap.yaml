@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+  labels:
+    app: alertmanager
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    route:
+      group_by: ['alertname', 'service']
+      group_wait: 30s        # wait before sending first alert in a group
+      group_interval: 5m     # wait before sending an updated alert
+      repeat_interval: 1h    # re-notify if alert is still firing after 1h
+      receiver: 'default'
+
+      routes:
+        # High severity — page immediately
+        - matchers:
+            - severity = critical
+          group_wait: 10s
+          receiver: 'default'
+
+        # Fraud alerts — separate group so they don't get swallowed
+        - matchers:
+            - alertname = FraudSpikeDetected
+          group_by: ['alertname']
+          receiver: 'default'
+
+    receivers:
+      - name: 'default'
+        # Slack receiver added here once webhook is available
+
+    inhibit_rules:
+      # If a service is completely down, suppress latency/error alerts for it
+      - source_matchers:
+          - alertname = ServiceDown
+        target_matchers:
+          - alertname =~ "HighErrorRate|HighLatency"
+        equal: ['service']

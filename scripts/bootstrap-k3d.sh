@@ -86,6 +86,7 @@ else
     --port "30000:30000@server:0" \
     --port "30080:30080@server:0" \
     --port "30030:30030@server:0" \
+    --port "30093:30093@server:0" \
     --k3s-arg "--disable=traefik@server:0" \
     --wait
   success "Cluster created"
@@ -235,9 +236,10 @@ echo -e "${GREEN}${BOLD}╔═════════════════�
 echo -e "${GREEN}${BOLD}║     Banking O11y Demo — Ready!           ║${RESET}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════╝${RESET}"
 echo ""
-echo -e "  ${BOLD}Frontend${RESET}    →  http://localhost:30080"
-echo -e "  ${BOLD}API Gateway${RESET} →  http://localhost:30000/docs"
-echo -e "  ${BOLD}Grafana${RESET}     →  http://localhost:30030  (admin / admin)"
+echo -e "  ${BOLD}Frontend${RESET}      →  http://localhost:30080"
+echo -e "  ${BOLD}API Gateway${RESET}   →  http://localhost:30000/docs"
+echo -e "  ${BOLD}Grafana${RESET}       →  http://localhost:30030  (admin / admin)"
+echo -e "  ${BOLD}Alertmanager${RESET}  →  http://localhost:30093"
 echo ""
 echo -e "  Login: alice@example.com / password123"
 echo ""
