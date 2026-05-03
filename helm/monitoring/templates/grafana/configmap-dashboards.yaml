@@ -17,6 +17,13 @@ data:
         options:
           path: /etc/grafana/provisioning/dashboards
 
-  # Banking Overview dashboard JSON
   banking-overview.json: |
 {{ .Files.Get "dashboards/banking-overview.json" | indent 4 }}
+  transactions.json: |
+{{ .Files.Get "dashboards/transactions.json" | indent 4 }}
+  fraud-risk.json: |
+{{ .Files.Get "dashboards/fraud-risk.json" | indent 4 }}
+  service-health.json: |
+{{ .Files.Get "dashboards/service-health.json" | indent 4 }}
+  logs-explorer.json: |
+{{ .Files.Get "dashboards/logs-explorer.json" | indent 4 }}

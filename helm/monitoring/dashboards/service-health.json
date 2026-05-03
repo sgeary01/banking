@@ -1,0 +1,723 @@
+{
+  "uid": "banking-service-health",
+  "title": "Banking — Service Health",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Platform",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "id": 2,
+      "title": "api-gateway — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "mappings": [
+          { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 0 }, "1": { "text": "UP", "color": "green", "index": 1 } } }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "up{job=\"api-gateway\"}",
+          "legendFormat": "api-gateway"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "api-gateway — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 20, "x": 4, "y": 1 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Error Rate %" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 25 }] } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"api-gateway\"}[1m]))",
+          "legendFormat": "RPS"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "100 * sum(rate(http_requests_total{job=\"api-gateway\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"api-gateway\"}[1m]))",
+          "legendFormat": "Error Rate %"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Auth & Customer",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "id": 11,
+      "title": "auth-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 0, "y": 6 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "up{job=\"auth-service\"}",
+          "legendFormat": "auth-service"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "auth-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 10, "x": 2, "y": 6 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Error Rate %" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"auth-service\"}[1m]))",
+          "legendFormat": "RPS"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "100 * sum(rate(http_requests_total{job=\"auth-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"auth-service\"}[1m]))",
+          "legendFormat": "Error Rate %"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "customer-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 12, "y": 6 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "up{job=\"customer-service\"}",
+          "legendFormat": "customer-service"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "customer-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 10, "x": 14, "y": 6 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Error Rate %" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"customer-service\"}[1m]))",
+          "legendFormat": "RPS"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "100 * sum(rate(http_requests_total{job=\"customer-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"customer-service\"}[1m]))",
+          "legendFormat": "Error Rate %"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Core Banking",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "title": "account-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 0, "y": 11 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }]
+          },
+          "unit": "short",
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "up{job=\"account-service\"}",
+          "legendFormat": "account-service"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "account-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 2, "y": 11 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Error Rate %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "sum(rate(http_requests_total{job=\"account-service\"}[1m]))", "legendFormat": "RPS" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "100 * sum(rate(http_requests_total{job=\"account-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"account-service\"}[1m]))", "legendFormat": "Error Rate %" }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "transaction-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 8, "y": 11 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "unit": "short",
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }]
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "up{job=\"transaction-service\"}", "legendFormat": "transaction-service" }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "transaction-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 10, "y": 11 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Error Rate %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "sum(rate(http_requests_total{job=\"transaction-service\"}[1m]))", "legendFormat": "RPS" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "100 * sum(rate(http_requests_total{job=\"transaction-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"transaction-service\"}[1m]))", "legendFormat": "Error Rate %" }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "ledger-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 16, "y": 11 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "unit": "short",
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }]
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "up{job=\"ledger-service\"}", "legendFormat": "ledger-service" }
+      ]
+    },
+    {
+      "id": 26,
+      "title": "ledger-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 11 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Error Rate %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "sum(rate(http_requests_total{job=\"ledger-service\"}[1m]))", "legendFormat": "RPS" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "100 * sum(rate(http_requests_total{job=\"ledger-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"ledger-service\"}[1m]))", "legendFormat": "Error Rate %" }
+      ]
+    },
+    {
+      "id": 30,
+      "title": "Risk",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "collapsed": false
+    },
+    {
+      "id": 31,
+      "title": "fraud-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 0, "y": 16 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "unit": "short",
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }]
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "up{job=\"fraud-service\"}", "legendFormat": "fraud-service" }
+      ]
+    },
+    {
+      "id": 32,
+      "title": "fraud-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 10, "x": 2, "y": 16 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Error Rate %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "sum(rate(http_requests_total{job=\"fraud-service\"}[1m]))", "legendFormat": "RPS" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "100 * sum(rate(http_requests_total{job=\"fraud-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"fraud-service\"}[1m]))", "legendFormat": "Error Rate %" }
+      ]
+    },
+    {
+      "id": 33,
+      "title": "reporting-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 2, "x": 12, "y": 16 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "unit": "short",
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }]
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "up{job=\"reporting-service\"}", "legendFormat": "reporting-service" }
+      ]
+    },
+    {
+      "id": 34,
+      "title": "reporting-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 10, "x": 14, "y": 16 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Error Rate %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "sum(rate(http_requests_total{job=\"reporting-service\"}[1m]))", "legendFormat": "RPS" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "100 * sum(rate(http_requests_total{job=\"reporting-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"reporting-service\"}[1m]))", "legendFormat": "Error Rate %" }
+      ]
+    },
+    {
+      "id": 40,
+      "title": "Notifications",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
+      "collapsed": false
+    },
+    {
+      "id": 41,
+      "title": "notification-service — Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 21 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "unit": "short",
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }]
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "up{job=\"notification-service\"}", "legendFormat": "notification-service" }
+      ]
+    },
+    {
+      "id": 42,
+      "title": "notification-service — RPS & Error Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 4, "w": 20, "x": 4, "y": 21 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Error Rate %" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "sum(rate(http_requests_total{job=\"notification-service\"}[1m]))", "legendFormat": "RPS" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "banking-prometheus" }, "expr": "100 * sum(rate(http_requests_total{job=\"notification-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"notification-service\"}[1m]))", "legendFormat": "Error Rate %" }
+      ]
+    },
+    {
+      "id": 50,
+      "title": "All Services — Current Status",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 25 },
+      "options": {
+        "footer": { "show": false },
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Service", "desc": false }]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "align": "left",
+            "displayMode": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Status" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } },
+              { "id": "mappings", "value": [{ "type": "value", "options": { "0": { "text": "DOWN", "index": 0 }, "1": { "text": "UP", "index": 1 } } }] }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Error Rate %" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 25 }] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "RPS" },
+            "properties": [{ "id": "unit", "value": "reqps" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "P95 Latency" },
+            "properties": [{ "id": "unit", "value": "s" }]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "job": "Service",
+              "Value #A": "Status",
+              "Value #B": "RPS",
+              "Value #C": "Error Rate %",
+              "Value #D": "P95 Latency"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "up{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}",
+          "legendFormat": "{{job}}",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m])) by (job)",
+          "legendFormat": "{{job}}",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "100 * sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\", status=\"5xx\"}[1m])) by (job) / sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m])) by (job)",
+          "legendFormat": "{{job}}",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m])) by (job, le))",
+          "legendFormat": "{{job}}",
+          "instant": true
+        }
+      ]
+    }
+  ],
+  "tags": ["banking", "health", "services"],
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "weekStart": ""
+}

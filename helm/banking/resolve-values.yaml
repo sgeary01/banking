@@ -13,3 +13,8 @@ integrations:
     connection:
       url: http://grafana.monitoring.svc.cluster.local:3000
       alertScrapingEnabled: true
+  alertmanager-main:
+    type: alertManager
+    create: true
+    connection:
+      url: http://alertmanager.monitoring.svc.cluster.local:9093

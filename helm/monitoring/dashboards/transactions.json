@@ -1,6 +1,6 @@
 {
-  "uid": "banking-overview",
-  "title": "Banking — Overview",
+  "uid": "banking-transactions",
+  "title": "Banking — Transactions & Payments",
   "schemaVersion": 38,
   "version": 1,
   "refresh": "30s",
@@ -14,56 +14,17 @@
   "panels": [
     {
       "id": 1,
-      "title": "Health",
+      "title": "Volume",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "collapsed": false
     },
     {
       "id": 2,
-      "title": "Services Up",
+      "title": "Transaction RPS",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "green", "value": 10 }
-            ]
-          },
-          "unit": "short",
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "count(up{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"} == 1)",
-          "legendFormat": "Services Up"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Total RPS",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -89,17 +50,17 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m]))",
-          "legendFormat": "Total RPS"
+          "expr": "sum(rate(http_requests_total{job=\"transaction-service\"}[1m]))",
+          "legendFormat": "Transaction RPS"
         }
       ]
     },
     {
-      "id": 4,
-      "title": "Overall Error Rate %",
+      "id": 3,
+      "title": "Transaction Error Rate %",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -129,23 +90,23 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "100 * sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m]))",
+          "expr": "100 * sum(rate(http_requests_total{job=\"transaction-service\", status=\"5xx\"}[1m])) / sum(rate(http_requests_total{job=\"transaction-service\"}[1m]))",
           "legendFormat": "Error Rate %"
         }
       ]
     },
     {
-      "id": 5,
-      "title": "Active Alerts",
+      "id": 4,
+      "title": "Transaction P95 Latency",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
         "textMode": "auto",
         "colorMode": "background",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
@@ -155,11 +116,11 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 3 }
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1 }
             ]
           },
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -167,21 +128,21 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
-          "legendFormat": "Firing Alerts"
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"transaction-service\"}[1m])) by (le))",
+          "legendFormat": "P95 Latency"
         }
       ]
     },
     {
       "id": 10,
-      "title": "Traffic",
+      "title": "Transaction Service",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "collapsed": false
     },
     {
       "id": 11,
-      "title": "Requests/sec per Service",
+      "title": "Transaction Service — Request Rate by Status",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
@@ -206,58 +167,29 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m])) by (job)",
-          "legendFormat": "{{job}}"
+          "expr": "sum(rate(http_requests_total{job=\"transaction-service\", status=\"2xx\"}[1m]))",
+          "legendFormat": "2xx"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"transaction-service\", status=\"4xx\"}[1m]))",
+          "legendFormat": "4xx"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"transaction-service\", status=\"5xx\"}[1m]))",
+          "legendFormat": "5xx"
         }
       ]
     },
     {
       "id": 12,
-      "title": "Error Rate % per Service",
+      "title": "Transaction Service — Latency Percentiles",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "spanNulls": false
-          },
-          "unit": "percent",
-          "min": 0,
-          "max": 100
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "100 * sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\", status=\"5xx\"}[1m])) by (job) / sum(rate(http_requests_total{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m])) by (job)",
-          "legendFormat": "{{job}}"
-        }
-      ]
-    },
-    {
-      "id": 20,
-      "title": "Latency",
-      "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
-      "collapsed": false
-    },
-    {
-      "id": 21,
-      "title": "P95 Latency per Service",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
         "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
@@ -279,21 +211,116 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"api-gateway|auth-service|customer-service|account-service|transaction-service|ledger-service|fraud-service|notification-service|reporting-service|chaos-service\"}[1m])) by (job, le))",
-          "legendFormat": "{{job}} p95"
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"transaction-service\"}[1m])) by (le))",
+          "legendFormat": "P50"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"transaction-service\"}[1m])) by (le))",
+          "legendFormat": "P95"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"transaction-service\"}[1m])) by (le))",
+          "legendFormat": "P99"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Ledger Service",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "title": "Ledger Service — Request Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"ledger-service\", status=\"2xx\"}[1m]))",
+          "legendFormat": "2xx"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "sum(rate(http_requests_total{job=\"ledger-service\", status=\"5xx\"}[1m]))",
+          "legendFormat": "5xx"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Ledger Service — Latency",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"ledger-service\"}[1m])) by (le))",
+          "legendFormat": "P50"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"ledger-service\"}[1m])) by (le))",
+          "legendFormat": "P95"
         }
       ]
     },
     {
       "id": 30,
-      "title": "Logs",
+      "title": "Errors",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
       "collapsed": false
     },
     {
       "id": 31,
-      "title": "Recent Errors",
+      "title": "Transaction & Ledger Error Logs",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "banking-loki" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
@@ -311,13 +338,13 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "banking-loki" },
-          "expr": "{namespace=\"banking\"} | json | level=\"error\"",
+          "expr": "{namespace=\"banking\", service=~\"transaction-service|ledger-service\"} | json | level=\"error\"",
           "legendFormat": ""
         }
       ]
     }
   ],
-  "tags": ["banking", "overview"],
+  "tags": ["banking", "transactions"],
   "timezone": "browser",
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
