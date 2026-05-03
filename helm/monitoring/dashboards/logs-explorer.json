@@ -138,7 +138,8 @@
             "uid": "banking-loki"
           },
           "expr": "sum by (service) (count_over_time({namespace=\"banking\", service=~\"$service\"} | __error__=\"\" [1m]))",
-          "legendFormat": "{{service}}"
+          "legendFormat": "{{service}}",
+          "queryType": "range"
         }
       ]
     },
@@ -205,7 +206,8 @@
             "uid": "banking-loki"
           },
           "expr": "sum by (service) (count_over_time({namespace=\"banking\", service=~\"$service\", level=~\"warning|error\"} | __error__=\"\" [1m]))",
-          "legendFormat": "{{service}}"
+          "legendFormat": "{{service}}",
+          "queryType": "range"
         }
       ]
     },
