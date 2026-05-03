@@ -18,7 +18,12 @@
           "type": "loki",
           "uid": "banking-loki"
         },
-        "query": "label_values(service)",
+        "query": {
+          "label": "service",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{namespace=\"banking\"}",
+          "type": 1
+        },
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -28,7 +33,8 @@
           "text": "All",
           "value": "$__all"
         },
-        "sort": 1
+        "sort": 1,
+        "definition": "label_values(service)"
       },
       {
         "name": "level",
