@@ -204,7 +204,7 @@
             "type": "loki",
             "uid": "banking-loki"
           },
-          "expr": "sum by (service) (count_over_time({namespace=\"banking\", service=~\"$service\"} | json | level=\"error\" [1m]))",
+          "expr": "sum by (service) (count_over_time({namespace=\"banking\", service=~\"$service\", level=\"error\"}[1m]))",
           "legendFormat": "{{service}}"
         }
       ]
@@ -252,7 +252,7 @@
             "type": "loki",
             "uid": "banking-loki"
           },
-          "expr": "{namespace=\"banking\", service=~\"$service\"} | json | level=~\"$level\"",
+          "expr": "{namespace=\"banking\", service=~\"$service\"} | level =~ \"$level\"",
           "legendFormat": ""
         }
       ]
