@@ -1,6 +1,6 @@
 {
   "uid": "banking-logs",
-  "title": "Banking — Logs Explorer",
+  "title": "Banking \u2014 Logs Explorer",
   "schemaVersion": 38,
   "version": 1,
   "refresh": "30s",
@@ -18,7 +18,7 @@
           "type": "loki",
           "uid": "banking-loki"
         },
-        "query": "label_values({namespace=\"banking\"}, service)",
+        "query": "label_values(service)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -36,18 +36,35 @@
         "label": "Log Level",
         "query": "All,error,warning,info",
         "options": [
-          { "selected": true, "text": "All", "value": "All" },
-          { "selected": false, "text": "error", "value": "error" },
-          { "selected": false, "text": "warning", "value": "warning" },
-          { "selected": false, "text": "info", "value": "info" }
+          {
+            "selected": true,
+            "text": "All",
+            "value": ".*"
+          },
+          {
+            "selected": false,
+            "text": "error",
+            "value": "error"
+          },
+          {
+            "selected": false,
+            "text": "warning",
+            "value": "warning"
+          },
+          {
+            "selected": false,
+            "text": "info",
+            "value": "info"
+          }
         ],
         "multi": false,
-        "includeAll": false,
+        "includeAll": true,
         "current": {
           "selected": true,
           "text": "All",
-          "value": "All"
-        }
+          "value": ".*"
+        },
+        "allValue": ".*"
       }
     ]
   },
@@ -56,22 +73,47 @@
       "id": 1,
       "title": "Volume",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "collapsed": false
     },
     {
       "id": 2,
       "title": "Log Volume per Service (per minute)",
       "type": "timeseries",
-      "datasource": { "type": "loki", "uid": "banking-loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 1 },
+      "datasource": {
+        "type": "loki",
+        "uid": "banking-loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        }
       },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 10,
@@ -85,7 +127,10 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "banking-loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "banking-loki"
+          },
           "expr": "sum by (service) (count_over_time({namespace=\"banking\", service=~\"$service\"}[1m]))",
           "legendFormat": "{{service}}"
         }
@@ -95,22 +140,47 @@
       "id": 10,
       "title": "Error Volume",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
       "collapsed": false
     },
     {
       "id": 11,
       "title": "Error Log Rate per Service (per minute)",
       "type": "timeseries",
-      "datasource": { "type": "loki", "uid": "banking-loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 10 },
+      "datasource": {
+        "type": "loki",
+        "uid": "banking-loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        }
       },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 15,
@@ -124,7 +194,10 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "banking-loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "banking-loki"
+          },
           "expr": "sum by (service) (count_over_time({namespace=\"banking\", service=~\"$service\"} | json | level=\"error\" [1m]))",
           "legendFormat": "{{service}}"
         }
@@ -134,15 +207,28 @@
       "id": 20,
       "title": "Logs",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
       "collapsed": false
     },
     {
       "id": 21,
       "title": "Log Stream",
       "type": "logs",
-      "datasource": { "type": "loki", "uid": "banking-loki" },
-      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 19 },
+      "datasource": {
+        "type": "loki",
+        "uid": "banking-loki"
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
@@ -156,21 +242,20 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "banking-loki" },
-          "expr": "{namespace=\"banking\", service=~\"$service\"} | json | level=~\"${level:raw}\" != \"All\"",
+          "datasource": {
+            "type": "loki",
+            "uid": "banking-loki"
+          },
+          "expr": "{namespace=\"banking\", service=~\"$service\"} | json | level=~\"$level\"",
           "legendFormat": ""
-        },
-        {
-          "refId": "B",
-          "datasource": { "type": "loki", "uid": "banking-loki" },
-          "expr": "{namespace=\"banking\", service=~\"$service\"} | json",
-          "legendFormat": "",
-          "hide": true
         }
       ]
     }
   ],
-  "tags": ["banking", "logs"],
+  "tags": [
+    "banking",
+    "logs"
+  ],
   "timezone": "browser",
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
