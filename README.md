@@ -28,14 +28,20 @@ A realistic multi-service banking application built for learning **observability
 
 | Tool | Purpose |
 |---|---|
-| Grafana | Dashboards — pre-provisioned Banking Overview |
-| Prometheus | Metrics scraping from all services |
+| Prometheus | Metrics scraping from all services + alert rule evaluation |
+| Alertmanager | Alert routing, deduplication, Slack notifications |
 | Loki | Log aggregation |
 | Promtail | Ships pod logs to Loki (DaemonSet, static file discovery) |
+| Grafana | 5 pre-provisioned dashboards covering traffic, transactions, fraud, service health, and logs |
 
 ### Resolve Satellite
 
-The Resolve satellite runs in-cluster and connects to `dev0.resolve.ai`. It observes service topology via CoreDNS dnstap, giving Resolve visibility into how services connect.
+The Resolve satellite runs in-cluster and connects to `dev0.resolve.ai`. It provides Resolve with:
+- **Kubernetes topology** — services, pods, deployments
+- **Metrics** — via Prometheus (auto-discovered through Grafana datasource)
+- **Logs** — via Loki (auto-discovered through Grafana datasource)
+- **Alerts** — via direct Alertmanager integration (polls `/api/v2/alerts/groups`)
+- **DNS topology** — via CoreDNS dnstap, showing real-time service-to-service connections
 
 ---
 
@@ -56,7 +62,7 @@ Browser
 
 k3d Cluster (k3s in Docker)
   ├── namespace: banking     ← 10 services + frontend + seeder
-  ├── namespace: monitoring  ← Prometheus, Loki, Promtail, Grafana
+  ├── namespace: monitoring  ← Prometheus, Alertmanager, Loki, Promtail, Grafana
   └── namespace: default     ← Resolve satellite
 
 CoreDNS dnstap → resolve-satellite:4444
@@ -76,6 +82,12 @@ CoreDNS dnstap → resolve-satellite:4444
 | http://localhost:30080 | React frontend |
 | http://localhost:30000 | API gateway (direct) |
 | http://localhost:30030 | Grafana — `admin` / `admin` |
+| http://localhost:30093 | Alertmanager UI |
+
+> **Note:** Port 30093 (Alertmanager) requires a port-forward on the current cluster — it will be mapped natively on the next `bootstrap-k3d.sh` run.
+> ```bash
+> kubectl port-forward -n monitoring svc/alertmanager 30093:9093
+> ```
 
 **Default login:** `alice@example.com` / `password123` (and 9 other seeded users)
 
@@ -89,6 +101,7 @@ CoreDNS dnstap → resolve-satellite:4444
 | `k3d` | `brew install k3d` |
 | `helm` | `brew install helm` |
 | `kubectl` | `brew install kubectl` |
+| `jq` | `brew install jq` |
 | `make` | Included on macOS |
 
 > **Resource budget:** allocate at least 8 GB RAM to Docker Desktop. The full stack uses ~4–5 GB under normal load, more under chaos. The Resolve satellite alone requires ~2 GB.
@@ -98,19 +111,42 @@ CoreDNS dnstap → resolve-satellite:4444
 ## Quick Start
 
 ```bash
-# One command — creates cluster, builds images, deploys everything
+# 1. Copy .env and add your tokens
+cp .env.example .env
+# Edit .env — add RESOLVE_INGEST_TOKEN and SLACK_WEBHOOK_URL
+
+# 2. One command — creates cluster, builds images, deploys everything
 make k3d-up
 ```
 
-That's it. The bootstrap script:
-1. Creates the k3d cluster with the correct NodePort mappings
-2. Builds all Docker images
-3. Imports images into the cluster (no registry needed)
-4. Helm-installs the banking app and monitoring stack
+The bootstrap script handles everything:
+1. Creates the k3d cluster with correct NodePort mappings
+2. Builds all Docker images and imports them (no registry needed)
+3. Helm-installs the banking app and monitoring stack
+4. Generates a Grafana service account token and creates the `resolve-grafana` secret
+5. Creates the `alertmanager-slack` secret from `SLACK_WEBHOOK_URL`
+6. Deploys the Resolve satellite with Grafana + Alertmanager integrations
+7. Patches CoreDNS with dnstap → satellite
 
-**Seed data is automatic.** A `banking-seeder` deployment waits for all services to be healthy and seeds 10 customers, their accounts, and transaction history on every startup. No manual seed step required.
+**Seed data is automatic.** A `banking-seeder` deployment waits for all services to be healthy and seeds 10 customers, accounts, and transaction history on every startup.
 
-**Resolve satellite** must be set up separately — see [Resolve Setup](#resolve-setup) below.
+---
+
+## Secrets
+
+Secrets are **never committed to git**. Add them to `.env` — bootstrap reads and provisions them automatically.
+
+```bash
+# .env (copy from .env.example)
+RESOLVE_INGEST_TOKEN=your-resolve-token
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
+| Secret | Namespace | Used by |
+|---|---|---|
+| `resolve-ingest-token` | default | Resolve satellite — ingest auth |
+| `resolve-grafana` | default | Resolve satellite — Grafana API token (auto-generated) |
+| `alertmanager-slack` | monitoring | Alertmanager — Slack webhook |
 
 ---
 
@@ -140,6 +176,9 @@ helm upgrade monitoring ./helm/monitoring -n monitoring
 # Grafana
 make grafana-k8s     # opens http://localhost:30030
 
+# Alertmanager (port-forward until next bootstrap)
+kubectl port-forward -n monitoring svc/alertmanager 30093:9093
+
 # Prometheus direct access
 make prometheus-forward  # port-forward to localhost:9090
 
@@ -150,59 +189,33 @@ make promtail-logs   # debug log discovery issues
 
 ---
 
-## Secrets Management
+## Alerting
 
-Secrets are **never committed to git**. They are created manually as Kubernetes secrets and referenced by name in Helm values.
+### Alert Rules (Prometheus)
 
-```bash
-# Resolve satellite ingest token
-kubectl create secret generic resolve-ingest-token \
-  --from-literal=token=<YOUR_TOKEN> \
-  -n default
+| Alert | Condition | Severity | For |
+|---|---|---|---|
+| `ServiceDown` | `up == 0` | critical | 1m |
+| `HighErrorRate` | >5% 5xx | warning | 2m |
+| `CriticalErrorRate` | >25% 5xx | critical | 1m |
+| `HighLatency` | P95 > 2s | warning | 2m |
+| `FraudSpikeDetected` | fraud-service >0.5 req/s | warning | 1m |
 
-# Future secrets follow the same pattern:
-# kubectl create secret generic <name> --from-literal=<key>=<value> -n <namespace>
+### Alertmanager Routing
+
+- **Critical alerts** → `#banking-alerts` Slack, 10s group wait
+- **Warning alerts** → `#banking-alerts` Slack, 30s group wait
+- **Inhibition:** `ServiceDown` suppresses `HighErrorRate` + `HighLatency` for the same service
+- **Resolved:** automatic follow-up posted to Slack when alert clears
+
+### Alertmanager UI Filters
+
 ```
-
-Values files reference secrets by name only:
-```yaml
-# helm/banking/resolve-values.yaml
-ingest:
-  tokenSecretName: resolve-ingest-token
-  host: receiver.dev0.resolve.ai
+severity="critical"                    # critical alerts only
+job="transaction-service"              # specific service
+alertname=~".*ErrorRate"              # pattern match
+severity="critical" job="transaction-service"  # combined
 ```
-
----
-
-## Resolve Setup
-
-The Resolve satellite runs in the `default` namespace and connects to `dev0.resolve.ai`.
-
-### 1. Create the ingest token secret
-
-```bash
-kubectl create secret generic resolve-ingest-token \
-  --from-literal=token=<YOUR_TOKEN> \
-  -n default
-```
-
-### 2. Install the satellite
-
-```bash
-helm upgrade --install resolve-satellite \
-  oci://ghcr.io/resolve-ai/charts/satellite-chart \
-  --namespace default \
-  -f helm/banking/resolve-values.yaml
-```
-
-### 3. Verify
-
-```bash
-kubectl get pods -n default | grep satellite
-kubectl logs -n default resolve-satellite-satellite-chart-0 | grep -i connected
-```
-
-The satellite uses CoreDNS dnstap for service topology — configured automatically during bootstrap. Once connected, services and their DNS-based connections appear in the Resolve UI.
 
 ---
 
@@ -214,39 +227,67 @@ Use the frontend Chaos Panel at http://localhost:30080 or call the API directly.
 
 ```bash
 # Payment outage — transaction-service returns ~50% errors
+# Triggers: CriticalErrorRate + FraudSpikeDetected (load gen side effect)
 curl -X POST http://localhost:30000/chaos/scenarios/payment_outage/trigger
 
 # High latency — 3 second delay on account lookups
+# Triggers: HighLatency on account-service
 curl -X POST http://localhost:30000/chaos/scenarios/high_latency/trigger
 
-# Cascade failure — transaction + account both degraded simultaneously
+# Cascade failure — transaction + account both degraded
+# Triggers: CriticalErrorRate + HighLatency simultaneously
 curl -X POST http://localhost:30000/chaos/scenarios/cascade_failure/trigger
 
 # Fraud spike — large transactions to trigger fraud alerts
+# Triggers: FraudSpikeDetected
 curl -X POST http://localhost:30000/chaos/scenarios/fraud_spike/trigger
 
 # Notification flood — burst of small transactions
+# Triggers: HighLatency on notification-service
 curl -X POST http://localhost:30000/chaos/scenarios/notification_flood/trigger
 
 # Clear everything
 curl -X POST http://localhost:30000/chaos/scenarios/clear
 ```
 
-### Manual Injection
+### Manual Injection (any service)
 
 ```bash
-# 30% error rate on ledger-service
+# 60% error rate on a specific service
 curl -X POST http://localhost:30000/chaos/inject \
   -H 'Content-Type: application/json' \
-  -d '{"service": "ledger-service", "error_rate": 0.3}'
+  -d '{"service": "fraud-service", "error_rate": 0.6}'
 
-# 2 second latency on fraud checks
+# 2 second latency
 curl -X POST http://localhost:30000/chaos/inject \
   -H 'Content-Type: application/json' \
   -d '{"service": "fraud-service", "latency_ms": 2000}'
 ```
 
-> `payment_outage` is the most dramatic starting point — hits ~50% error rate within seconds, generating clear signal in Grafana and Resolve.
+### Simulate a Real Outage
+
+Scale any service to 0 — triggers `ServiceDown [critical]` within 1 minute:
+```bash
+kubectl scale deployment reporting-service -n banking --replicas=0
+# Restore:
+kubectl scale deployment reporting-service -n banking --replicas=1
+```
+
+> `payment_outage` is the best demo starting point — hits ~50% error rate within seconds, fires `CriticalErrorRate` to Slack in ~1 minute, and shows clearly across the Transaction & Payments dashboard.
+
+---
+
+## Grafana Dashboards
+
+5 dashboards are pre-provisioned in the **Banking** folder at http://localhost:30030.
+
+| Dashboard | What it shows |
+|---|---|
+| **Banking — Overview** | Service health scorecards, overall RPS/error rate/P95, active alert count |
+| **Banking — Transactions & Payments** | transaction-service + ledger deep dive, P50/P95/P99 latency, error logs |
+| **Banking — Fraud & Risk** | Fraud check rate with 0.5 req/s threshold line, reporting service panels |
+| **Banking — Service Health** | Per-service status with color-coded error rate thresholds, summary table |
+| **Banking — Logs Explorer** | Filterable by service and log level (error/warning/info) |
 
 ---
 
@@ -254,23 +295,26 @@ curl -X POST http://localhost:30000/chaos/inject \
 
 ### Metrics
 
-Every service exposes `/metrics` in Prometheus format. Key queries:
+Every service exposes `/metrics` in Prometheus format via `prometheus-fastapi-instrumentator`.
+
+Key label convention: `status="2xx"` / `status="5xx"` (not raw status codes).
 
 ```promql
 # Request rate per service
 sum(rate(http_requests_total[1m])) by (job)
 
 # Error rate %
-100 * (sum(rate(http_requests_total{status="5xx"}[5m])) or vector(0))
-    / sum(rate(http_requests_total[5m]))
+100 * sum by (job) (rate(http_requests_total{status="5xx"}[2m]))
+    / sum by (job) (rate(http_requests_total[2m]))
 
 # P95 latency
 histogram_quantile(0.95,
-  sum(rate(http_request_duration_seconds_bucket[1m])) by (job, le)
+  sum by (job, le) (rate(http_request_duration_seconds_bucket[2m]))
 )
-```
 
-> The status label is `status="2xx"` / `status="5xx"` — not `status_code`.
+# Firing alerts
+ALERTS{alertstate="firing"}
+```
 
 ### Logs
 
@@ -289,38 +333,25 @@ All services emit structured JSON via [structlog](https://www.structlog.org):
 }
 ```
 
-Promtail ships pod logs to Loki using static file discovery (`/var/log/pods/banking_*/*/*.log`). Every log line carries `request_id` and `trace_id` for cross-service correlation.
-
-Useful LogQL queries:
+Promtail ships pod logs to Loki with CRI parsing. Full JSON is preserved so `| json` works in LogQL.
 
 ```logql
 # All errors across services
-{service=~".+"} | json | level="error"
+{namespace="banking"} | json | level="error"
 
-# Fraud alerts
-{service="fraud-service"} | json | event="fraud alert"
+# Fraud events
+{namespace="banking", service="fraud-service"} | json | event="fraud alert created"
 
-# Follow a single request across all services
-{service=~".+"} | json | request_id="<id>"
+# Follow a request across all services
+{namespace="banking"} | json | request_id="<id>"
+
+# Log volume per service
+sum by (service) (count_over_time({namespace="banking"}[1m]))
 ```
-
-### Grafana Dashboard
-
-**Banking Services Overview** is pre-provisioned — open http://localhost:30030.
-
-| Panel | What it shows |
-|---|---|
-| Total Requests | Aggregate request count |
-| Error Rate % | Global 5xx rate — spikes under chaos |
-| Services Up | Count of healthy services (should be 10) |
-| Requests/sec per Service | Per-service throughput |
-| Error Rate per Service | Isolates the broken service |
-| P95 Latency per Service | Shows latency injection clearly |
-| Banking Service Logs | Live log stream from all services |
 
 ### Tracing
 
-OpenTelemetry is wired into every service. Traces are silently dropped until you point `OTEL_EXPORTER_OTLP_ENDPOINT` at a collector:
+OpenTelemetry is wired into every service. Traces are silently dropped until a collector is configured:
 
 ```yaml
 # helm/banking/values.yaml
@@ -333,16 +364,17 @@ otelEndpoint: "http://tempo.monitoring.svc.cluster.local:4318"
 
 ```
 banking/
+├── .env.example                       # copy to .env — add tokens here
 ├── Makefile
 ├── scripts/
-│   └── bootstrap-k3d.sh          # one-command cluster + deploy
+│   └── bootstrap-k3d.sh              # one-command cluster + deploy + secrets
 │
-├── base/                          # shared Python base image
+├── base/                              # shared Python base image
 │   ├── Dockerfile
 │   └── requirements.txt
 │
-├── shared/                        # library copied into every service
-│   ├── observability.py           # logging + tracing + Prometheus
+├── shared/                            # library copied into every service
+│   ├── observability.py               # logging + tracing + Prometheus
 │   ├── database.py
 │   ├── chaos.py
 │   └── http_client.py
@@ -350,29 +382,29 @@ banking/
 ├── services/
 │   ├── api-gateway/
 │   ├── auth-service/
-│   └── ...                        # one directory per service
+│   └── ...                            # one directory per service
 │
-├── frontend/                      # React app + nginx config
-│   └── nginx.conf                 # proxies /api/* → api-gateway in-cluster
+├── frontend/                          # React app + nginx config
 │
 ├── seed/
-│   └── seed.py                    # populates test data (runs automatically)
+│   └── seed.py                        # populates test data (runs automatically)
 │
 └── helm/
-    ├── banking/                   # Helm chart — 10 services + frontend + seeder
+    ├── banking/                       # Helm chart — services + frontend + seeder
     │   ├── values.yaml
-    │   ├── resolve-values.yaml    # Resolve satellite config (no secrets)
+    │   ├── resolve-values.yaml        # Resolve satellite config (no secrets)
     │   └── templates/
-    │       ├── seed-job.yaml      # seeder Deployment — auto-seeds on every start
-    │       └── ...
-    └── monitoring/                # Helm chart — Prometheus, Loki, Promtail, Grafana
-        ├── values.yaml
-        ├── dashboards/banking-overview.json
-        └── templates/
-            ├── prometheus/        # Recreate strategy to avoid PVC lock conflicts
-            ├── loki/
-            ├── promtail/
-            └── grafana/
+    │       └── seed-job.yaml          # seeder Deployment — auto-seeds on every start
+    ├── monitoring/                    # Helm chart — full o11y stack
+    │   ├── values.yaml
+    │   ├── dashboards/                # 5 Grafana dashboard JSON files
+    │   └── templates/
+    │       ├── prometheus/            # Recreate strategy, alert rules
+    │       ├── alertmanager/          # Routing, Slack receiver, inhibition rules
+    │       ├── loki/
+    │       ├── promtail/
+    │       └── grafana/
+    └── satellite-chart/               # Vendored Resolve satellite Helm chart
 ```
 
 ---
@@ -430,11 +462,27 @@ kubectl get pods -n banking | grep seeder
 kubectl logs -n banking -l app=banking-seeder -c seeder
 ```
 
+**Alertmanager UI not responding**
+```bash
+# Port-forward (required until next bootstrap)
+kubectl port-forward -n monitoring svc/alertmanager 30093:9093
+```
+
 **Prometheus stuck in CrashLoopBackOff after restart**
 
 Prometheus uses `Recreate` strategy to avoid PVC lock conflicts. If you see two Prometheus pods:
 ```bash
 kubectl rollout undo deployment/prometheus -n monitoring
+```
+
+**Resolve satellite not showing alerts**
+```bash
+# Verify Alertmanager integration is polling
+kubectl logs -n default resolve-satellite-satellite-chart-0 | grep alertManager
+
+# Verify alerts are firing in Prometheus
+kubectl exec -n monitoring deploy/prometheus -- \
+  wget -qO- 'http://localhost:9090/api/v1/alerts' | python3 -m json.tool
 ```
 
 **Out of disk space**
