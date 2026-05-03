@@ -28,6 +28,11 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/alertmanager
+            - name: templates
+              mountPath: /etc/alertmanager/templates
+            - name: slack-secret
+              mountPath: /etc/alertmanager/secrets
+              readOnly: true
             - name: data
               mountPath: /alertmanager
           resources:
@@ -47,5 +52,17 @@ spec:
         - name: config
           configMap:
             name: alertmanager-config
+            items:
+              - key: alertmanager.yml
+                path: alertmanager.yml
+        - name: templates
+          configMap:
+            name: alertmanager-config
+            items:
+              - key: slack.tmpl
+                path: slack.tmpl
+        - name: slack-secret
+          secret:
+            secretName: alertmanager-slack
         - name: data
           emptyDir: {}

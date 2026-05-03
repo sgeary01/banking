@@ -209,6 +209,17 @@ else
     --dry-run=client -o yaml | kubectl apply -f -
   success "resolve-grafana secret applied"
 
+  # Create Slack webhook secret for Alertmanager
+  if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
+    kubectl create secret generic alertmanager-slack \
+      --from-literal=webhookUrl="${SLACK_WEBHOOK_URL}" \
+      --namespace monitoring \
+      --dry-run=client -o yaml | kubectl apply -f -
+    success "alertmanager-slack secret applied"
+  else
+    warn "SLACK_WEBHOOK_URL not set — Alertmanager Slack notifications disabled"
+  fi
+
   info "Deploying Resolve satellite (Helm)"
   helm upgrade --install resolve-satellite ./helm/satellite-chart \
     --namespace default \

@@ -10,35 +10,64 @@ data:
   alertmanager.yml: |
     global:
       resolve_timeout: 5m
+      slack_api_url_file: /etc/alertmanager/secrets/webhookUrl
+
+    templates:
+      - /etc/alertmanager/templates/*.tmpl
 
     route:
-      group_by: ['alertname', 'service']
-      group_wait: 30s        # wait before sending first alert in a group
-      group_interval: 5m     # wait before sending an updated alert
-      repeat_interval: 1h    # re-notify if alert is still firing after 1h
-      receiver: 'default'
+      group_by: ['alertname', 'job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
+      receiver: 'slack-warning'
 
       routes:
-        # High severity — page immediately
         - matchers:
             - severity = critical
           group_wait: 10s
-          receiver: 'default'
+          receiver: 'slack-critical'
 
-        # Fraud alerts — separate group so they don't get swallowed
         - matchers:
             - alertname = FraudSpikeDetected
           group_by: ['alertname']
-          receiver: 'default'
+          receiver: 'slack-warning'
 
     receivers:
-      - name: 'default'
-        # Slack receiver added here once webhook is available
+      - name: 'slack-critical'
+        slack_configs:
+          - channel: '#banking-alerts'
+            send_resolved: true
+            icon_emoji: ':red_circle:'
+            username: 'Alertmanager'
+            title: '{{ "{{" }} template "slack.title" . {{ "}}" }}'
+            text: '{{ "{{" }} template "slack.text" . {{ "}}" }}'
+
+      - name: 'slack-warning'
+        slack_configs:
+          - channel: '#banking-alerts'
+            send_resolved: true
+            icon_emoji: ':warning:'
+            username: 'Alertmanager'
+            title: '{{ "{{" }} template "slack.title" . {{ "}}" }}'
+            text: '{{ "{{" }} template "slack.text" . {{ "}}" }}'
 
     inhibit_rules:
-      # If a service is completely down, suppress latency/error alerts for it
       - source_matchers:
           - alertname = ServiceDown
         target_matchers:
           - alertname =~ "HighErrorRate|HighLatency"
-        equal: ['service']
+        equal: ['job']
+
+  slack.tmpl: |
+    {{ "{{" }} define "slack.title" {{ "}}" }}
+    {{ "{{" }} if eq .Status "firing" {{ "}}" }}{{ "{{" }} if eq (index .Alerts 0).Labels.severity "critical" {{ "}}" }}:red_circle:{{ "{{" }} else {{ "}}" }}:warning:{{ "{{" }} end {{ "}}" }} [{{ "{{" }} .Status | toUpper {{ "}}" }}] {{ "{{" }} (index .Alerts 0).Labels.alertname {{ "}}" }}{{ "{{" }} else {{ "}}" }}:white_check_mark: [RESOLVED] {{ "{{" }} (index .Alerts 0).Labels.alertname {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+    {{ "{{" }} end {{ "}}" }}
+
+    {{ "{{" }} define "slack.text" {{ "}}" }}
+    {{ "{{" }} range .Alerts {{ "}}" }}*Service:* {{ "{{" }} .Labels.job {{ "}}" }}
+    *Summary:* {{ "{{" }} .Annotations.summary {{ "}}" }}
+    *Description:* {{ "{{" }} .Annotations.description {{ "}}" }}
+    *Severity:* {{ "{{" }} .Labels.severity {{ "}}" }}
+    {{ "{{" }} end {{ "}}" }}
+    {{ "{{" }} end {{ "}}" }}
