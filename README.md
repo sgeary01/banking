@@ -28,11 +28,12 @@ A realistic multi-service banking application built for learning **observability
 
 | Tool | Purpose |
 |---|---|
-| Prometheus | Metrics scraping from all services + alert rule evaluation |
+| Prometheus | Metrics scraping from all services + alert rule evaluation + spanmetrics remote-write receiver |
 | Alertmanager | Alert routing, deduplication, Slack notifications |
 | Loki | Log aggregation |
 | Promtail | Ships pod logs to Loki (DaemonSet, static file discovery) |
-| Grafana | 5 pre-provisioned dashboards covering traffic, transactions, fraud, service health, and logs |
+| Tempo | Distributed trace storage (OTLP HTTP/gRPC) + metrics generator (service graph + spanmetrics) |
+| Grafana | 6 pre-provisioned dashboards covering traffic, transactions, fraud, service health, logs, and traces |
 
 ### Resolve Satellite
 
@@ -62,7 +63,7 @@ Browser
 
 k3d Cluster (k3s in Docker)
   ├── namespace: banking     ← 10 services + frontend + seeder
-  ├── namespace: monitoring  ← Prometheus, Alertmanager, Loki, Promtail, Grafana
+  ├── namespace: monitoring  ← Prometheus, Alertmanager, Loki, Promtail, Tempo, Grafana
   └── namespace: default     ← Resolve satellite
 
 CoreDNS dnstap → resolve-satellite:4444
@@ -83,11 +84,6 @@ CoreDNS dnstap → resolve-satellite:4444
 | http://localhost:30000 | API gateway (direct) |
 | http://localhost:30030 | Grafana — `admin` / `admin` |
 | http://localhost:30093 | Alertmanager UI |
-
-> **Note:** Port 30093 (Alertmanager) requires a port-forward on the current cluster — it will be mapped natively on the next `bootstrap-k3d.sh` run.
-> ```bash
-> kubectl port-forward -n monitoring svc/alertmanager 30093:9093
-> ```
 
 **Default login:** `alice@example.com` / `password123` (and 9 other seeded users)
 
@@ -175,9 +171,6 @@ helm upgrade monitoring ./helm/monitoring -n monitoring
 
 # Grafana
 make grafana-k8s     # opens http://localhost:30030
-
-# Alertmanager (port-forward until next bootstrap)
-kubectl port-forward -n monitoring svc/alertmanager 30093:9093
 
 # Prometheus direct access
 make prometheus-forward  # port-forward to localhost:9090
@@ -279,7 +272,7 @@ kubectl scale deployment reporting-service -n banking --replicas=1
 
 ## Grafana Dashboards
 
-5 dashboards are pre-provisioned in the **Banking** folder at http://localhost:30030.
+6 dashboards are pre-provisioned in the **Banking** folder at http://localhost:30030.
 
 | Dashboard | What it shows |
 |---|---|
@@ -287,7 +280,8 @@ kubectl scale deployment reporting-service -n banking --replicas=1
 | **Banking — Transactions & Payments** | transaction-service + ledger deep dive, P50/P95/P99 latency, error logs |
 | **Banking — Fraud & Risk** | Fraud check rate with 0.5 req/s threshold line, reporting service panels |
 | **Banking — Service Health** | Per-service status with color-coded error rate thresholds, summary table |
-| **Banking — Logs Explorer** | Filterable by service and log level (error/warning/info) |
+| **Banking — Logs Explorer** | Filterable by service and log level — click a `trace_id` to jump to Tempo |
+| **Banking — Traces & Service Map** | Service topology graph, trace explorer table, span error rate, P50/P95/P99 from spanmetrics |
 
 ---
 
@@ -351,10 +345,27 @@ sum by (service) (count_over_time({namespace="banking"}[1m]))
 
 ### Tracing
 
-OpenTelemetry is wired into every service. Traces are silently dropped until a collector is configured:
+Every service is instrumented with OpenTelemetry (FastAPI + HTTPX auto-instrumentation). Traces export to Tempo via OTLP HTTP. Each log line includes a `trace_id` field — clicking it in the Logs Explorer dashboard opens the full trace in Tempo.
 
+Tempo's **metrics generator** derives two sets of Prometheus metrics from incoming spans and remote-writes them:
+
+- `traces_service_graph_*` — request/error counts and latency between service pairs, used by the service map
+- `traces_spanmetrics_*` — per-operation call counts and latency histograms, used by the latency panels
+
+```promql
+# Request rate from spans (server-side)
+rate(traces_spanmetrics_calls_total{span_kind="SPAN_KIND_SERVER"}[2m])
+
+# P99 latency from spans
+histogram_quantile(0.99, rate(traces_spanmetrics_latency_bucket{span_kind="SPAN_KIND_SERVER"}[2m]))
+
+# Span error rate
+rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[2m])
+  / rate(traces_spanmetrics_calls_total[2m])
+```
+
+The OTLP endpoint is set in `helm/banking/values.yaml`:
 ```yaml
-# helm/banking/values.yaml
 otelEndpoint: "http://tempo.monitoring.svc.cluster.local:4318"
 ```
 
@@ -397,12 +408,13 @@ banking/
     │       └── seed-job.yaml          # seeder Deployment — auto-seeds on every start
     ├── monitoring/                    # Helm chart — full o11y stack
     │   ├── values.yaml
-    │   ├── dashboards/                # 5 Grafana dashboard JSON files
+    │   ├── dashboards/                # 6 Grafana dashboard JSON files
     │   └── templates/
-    │       ├── prometheus/            # Recreate strategy, alert rules
+    │       ├── prometheus/            # Recreate strategy, alert rules, remote-write receiver
     │       ├── alertmanager/          # Routing, Slack receiver, inhibition rules
     │       ├── loki/
     │       ├── promtail/
+    │       ├── tempo/                 # OTLP receiver, metrics generator, local storage
     │       └── grafana/
     └── satellite-chart/               # Vendored Resolve satellite Helm chart
 ```
@@ -460,12 +472,6 @@ The `banking-seeder` deployment handles this automatically. Check its status:
 ```bash
 kubectl get pods -n banking | grep seeder
 kubectl logs -n banking -l app=banking-seeder -c seeder
-```
-
-**Alertmanager UI not responding**
-```bash
-# Port-forward (required until next bootstrap)
-kubectl port-forward -n monitoring svc/alertmanager 30093:9093
 ```
 
 **Prometheus stuck in CrashLoopBackOff after restart**
