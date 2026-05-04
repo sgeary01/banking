@@ -194,26 +194,32 @@ else
   success "Grafana is reachable"
 
   info "Creating Grafana service account and token"
-  # Create (or re-use) service account
-  SA_RESPONSE=$(curl -sf -X POST http://localhost:30030/api/serviceaccounts \
+  # Create service account — if it already exists the API returns 409, so we always search after
+  curl -sf -X POST http://localhost:30030/api/serviceaccounts \
     -H "Content-Type: application/json" \
     -u admin:admin \
-    -d '{"name":"resolve-satellite","role":"Viewer"}' 2>/dev/null || true)
+    -d '{"name":"resolve-satellite","role":"Viewer"}' &>/dev/null || true
 
-  # If SA already exists, fetch it by name
-  if echo "$SA_RESPONSE" | jq -e '.id' &>/dev/null; then
-    SA_ID=$(echo "$SA_RESPONSE" | jq -r '.id')
-  else
-    SA_ID=$(curl -sf "http://localhost:30030/api/serviceaccounts/search?query=resolve-satellite" \
-      -u admin:admin | jq -r '.serviceAccounts[0].id')
-  fi
+  SA_ID=$(curl -sf "http://localhost:30030/api/serviceaccounts/search?query=resolve-satellite" \
+    -u admin:admin | jq -r '.serviceAccounts[0].id')
+
+  [[ -z "$SA_ID" || "$SA_ID" == "null" ]] && die "Could not find or create Grafana service account"
+
+  # Delete any existing tokens so we can always create a fresh one
+  EXISTING_TOKENS=$(curl -sf "http://localhost:30030/api/serviceaccounts/${SA_ID}/tokens" \
+    -u admin:admin | jq -r '.[].id' 2>/dev/null || true)
+  for token_id in $EXISTING_TOKENS; do
+    curl -sf -X DELETE "http://localhost:30030/api/serviceaccounts/${SA_ID}/tokens/${token_id}" \
+      -u admin:admin &>/dev/null || true
+  done
 
   # Generate a fresh token
-  TOKEN_RESPONSE=$(curl -sf -X POST "http://localhost:30030/api/serviceaccounts/${SA_ID}/tokens" \
+  GRAFANA_TOKEN=$(curl -sf -X POST "http://localhost:30030/api/serviceaccounts/${SA_ID}/tokens" \
     -H "Content-Type: application/json" \
     -u admin:admin \
-    -d '{"name":"resolve-token"}')
-  GRAFANA_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.key')
+    -d '{"name":"resolve-token"}' | jq -r '.key')
+
+  [[ -z "$GRAFANA_TOKEN" || "$GRAFANA_TOKEN" == "null" ]] && die "Failed to generate Grafana token"
 
   kubectl create secret generic resolve-grafana \
     --from-literal=apiToken="${GRAFANA_TOKEN}" \

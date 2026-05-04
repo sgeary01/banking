@@ -141,6 +141,30 @@ promtail-logs:
 prometheus-forward:
 	kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
+# ── Resolve ─────────────────────────────────────────────────────
+## Regenerate Grafana service account token and restart the satellite
+grafana-token-refresh:
+	@echo "Refreshing Grafana service account token..."
+	@SA_ID=$$(curl -sf "http://localhost:30030/api/serviceaccounts/search?query=resolve-satellite" \
+	  -u admin:admin | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['serviceAccounts'][0]['id'] if d.get('serviceAccounts') else '')"); \
+	if [ -z "$$SA_ID" ]; then \
+	  SA_ID=$$(curl -sf -X POST http://localhost:30030/api/serviceaccounts \
+	    -H "Content-Type: application/json" -u admin:admin \
+	    -d '{"name":"resolve-satellite","role":"Viewer"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])"); \
+	fi; \
+	curl -sf "http://localhost:30030/api/serviceaccounts/$$SA_ID/tokens" -u admin:admin \
+	  | python3 -c "import json,sys; [print(t['id']) for t in json.load(sys.stdin)]" \
+	  | xargs -I{} curl -sf -X DELETE "http://localhost:30030/api/serviceaccounts/$$SA_ID/tokens/{}" -u admin:admin > /dev/null; \
+	TOKEN=$$(curl -sf -X POST "http://localhost:30030/api/serviceaccounts/$$SA_ID/tokens" \
+	  -H "Content-Type: application/json" -u admin:admin \
+	  -d '{"name":"resolve-token"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['key'])"); \
+	kubectl create secret generic resolve-grafana \
+	  --from-literal=token="$$TOKEN" --namespace default \
+	  --dry-run=client -o yaml | kubectl apply -f -; \
+	kubectl rollout restart statefulset/resolve-satellite-satellite-chart -n default; \
+	kubectl rollout status statefulset/resolve-satellite-satellite-chart -n default --timeout=60s; \
+	echo "Done — token refreshed and satellite restarted"
+
 # ── Chaos ───────────────────────────────────────────────────────
 ## Interactive chaos menu — app and infra scenarios in one place
 chaos:
