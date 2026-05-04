@@ -141,6 +141,31 @@ promtail-logs:
 prometheus-forward:
 	kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
+# ── Infra chaos ─────────────────────────────────────────────────
+## Trigger OOM kill on transaction-service (patches memory limit to 48Mi)
+chaos-oom:
+	./scripts/infra-chaos.sh oom trigger
+
+## Trigger JWT secret rotation failure (api-gateway rejects all tokens)
+chaos-jwt:
+	./scripts/infra-chaos.sh jwt trigger
+
+## Trigger network policy blocking fraud-service ingress
+chaos-netpolicy:
+	./scripts/infra-chaos.sh netpolicy trigger
+
+## Trigger CPU starvation on account-service (limit → 10m)
+chaos-cpu:
+	./scripts/infra-chaos.sh cpu trigger
+
+## Trigger bad deployment on reporting-service (broken image tag)
+chaos-deployment:
+	./scripts/infra-chaos.sh deployment trigger
+
+## Clear all infra chaos scenarios
+chaos-infra-clear:
+	./scripts/infra-chaos.sh clear-all
+
 # ── Ops ─────────────────────────────────────────────────────────
 ## Tail logs — all services, or one: make logs SVC=auth-service
 logs:
