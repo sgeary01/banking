@@ -29,3 +29,5 @@ data:
 {{ .Files.Get "dashboards/logs-explorer.json" | indent 4 }}
   traces.json: |
 {{ .Files.Get "dashboards/traces.json" | indent 4 }}
+  k8s-pod-health.json: |
+{{ .Files.Get "dashboards/k8s-pod-health.json" | indent 4 }}
