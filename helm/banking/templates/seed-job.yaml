@@ -46,9 +46,10 @@ spec:
             - sh
             - -c
             - |
-              python /seed/seed.py
-              echo "Seed complete — sleeping."
-              sleep infinity
+              while true; do
+                python /seed/seed.py
+                sleep 60
+              done
           env:
             - name: AUTH_SERVICE_URL
               value: "http://auth-service:8001"

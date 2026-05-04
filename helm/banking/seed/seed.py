@@ -166,8 +166,26 @@ def generate_transactions(all_account_ids: list[str]):
         time.sleep(0.1)
 
 
+def is_already_seeded() -> bool:
+    """Returns True if the customer service already has data."""
+    try:
+        r = httpx.get(f"{CUSTOMER_URL}/customers", timeout=5)
+        if r.status_code == 200:
+            customers = r.json()
+            if isinstance(customers, list) and len(customers) > 0:
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def main():
     wait_for_services()
+
+    if is_already_seeded():
+        print("✓ Already seeded — nothing to do.")
+        return
+
     print(f"\nSeeding {len(CUSTOMERS)} customers…\n")
 
     all_account_ids = []
