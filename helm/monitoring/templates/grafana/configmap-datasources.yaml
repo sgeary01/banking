@@ -26,3 +26,26 @@ data:
         url: http://loki.monitoring.svc.cluster.local:3100
         jsonData:
           maxLines: 1000
+          derivedFields:
+            - name: TraceID
+              matcherRegex: '"trace_id":"(\w+)"'
+              url: '$${__value.raw}'
+              datasourceUid: banking-tempo
+
+      - name: Tempo
+        type: tempo
+        uid: banking-tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          httpMethod: GET
+          serviceMap:
+            datasourceUid: banking-prometheus
+          lokiSearch:
+            datasourceUid: banking-loki
+          nodeGraph:
+            enabled: true
+          traceQuery:
+            timeShiftEnabled: true
+            spanStartTimeShift: '-5m'
+            spanEndTimeShift: '5m'

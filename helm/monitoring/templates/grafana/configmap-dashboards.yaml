@@ -27,3 +27,5 @@ data:
 {{ .Files.Get "dashboards/service-health.json" | indent 4 }}
   logs-explorer.json: |
 {{ .Files.Get "dashboards/logs-explorer.json" | indent 4 }}
+  traces.json: |
+{{ .Files.Get "dashboards/traces.json" | indent 4 }}

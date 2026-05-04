@@ -20,6 +20,13 @@ loki:
 promtail:
   image: grafana/promtail:3.0.0
 
+tempo:
+  image: grafana/tempo:2.4.1
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+
 alertmanager:
   image: prom/alertmanager:v0.27.0
   service:

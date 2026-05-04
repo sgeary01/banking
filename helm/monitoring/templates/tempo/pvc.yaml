@@ -1,0 +1,19 @@
+{{- if .Values.tempo.storage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-data
+  namespace: monitoring
+  labels:
+    app: tempo
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.tempo.storage.size }}
+  {{- if .Values.tempo.storage.storageClass }}
+  storageClassName: {{ .Values.tempo.storage.storageClass }}
+  {{- end }}
+{{- end }}

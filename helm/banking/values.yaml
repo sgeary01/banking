@@ -17,7 +17,7 @@ resources:
 jwtSecret: dev-secret-change-in-prod
 
 # Optional: OTEL collector endpoint (leave empty until you add Tempo/Jaeger)
-otelEndpoint: ""
+otelEndpoint: "http://tempo.monitoring.svc.cluster.local:4318"
 
 # Per-service overrides
 services:
