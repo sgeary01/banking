@@ -171,8 +171,14 @@
                 "value": [
                   {
                     "title": "Open trace",
-                    "url": "/explore?left=%7B%22datasource%22%3A%22banking-tempo%22%2C%22queries%22%3A%5B%7B%22query%22%3A%22${__value.raw}%22%2C%22queryType%22%3A%22traceId%22%7D%5D%7D",
-                    "targetBlank": false
+                    "internal": {
+                      "datasourceUid": "banking-tempo",
+                      "datasourceName": "Tempo",
+                      "query": {
+                        "query": "${__value.raw}",
+                        "queryType": "traceId"
+                      }
+                    }
                   }
                 ]
               }
