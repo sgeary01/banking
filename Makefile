@@ -141,6 +141,11 @@ promtail-logs:
 prometheus-forward:
 	kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
+# ── Chaos ───────────────────────────────────────────────────────
+## Interactive chaos menu — app and infra scenarios in one place
+chaos:
+	./scripts/chaos-menu.sh
+
 # ── Infra chaos ─────────────────────────────────────────────────
 ## Trigger OOM kill on transaction-service (patches memory limit to 48Mi)
 chaos-oom:
