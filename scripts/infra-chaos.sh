@@ -48,22 +48,27 @@ wait_rollout() {
 # in the K8s dashboard without any application-level error logs.
 
 oom_trigger() {
-  echo "🔴 OOM: patching transaction-service memory limit → 48Mi"
-  patch_deployment transaction-service \
-    /spec/template/spec/containers/0/resources/limits/memory 48Mi
+  echo "🔴 OOM: patching transaction-service memory limit → 90Mi (tight enough to OOM under load)"
+  kubectl patch deployment transaction-service -n "$NAMESPACE" --type=json -p='[
+    {"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"64Mi"},
+    {"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"90Mi"}
+  ]'
   wait_rollout transaction-service
   echo ""
-  echo "  Now generate load to trigger the OOM kill:"
-  echo "  for i in \$(seq 1 20); do curl -s -o /dev/null -X POST http://localhost:30000/transactions/deposit -H 'Content-Type: application/json' -d '{\"account_id\":\"1\",\"amount\":10}'; done"
+  echo "  transaction-service is running but memory-constrained."
+  echo "  Generate load to trigger the OOM kill:"
+  echo "    for i in \$(seq 1 50); do curl -s -o /dev/null http://localhost:30000/transactions/health; done"
   echo ""
   echo "  Watch: kubectl get pods -n banking -w"
   echo "  Signals: K8s dashboard → pod restarts spike, container memory % → 100%"
 }
 
 oom_clear() {
-  echo "✅ OOM: restoring transaction-service memory limit → $ORIGINAL_MEMORY_LIMIT"
-  patch_deployment transaction-service \
-    /spec/template/spec/containers/0/resources/limits/memory "$ORIGINAL_MEMORY_LIMIT"
+  echo "✅ OOM: restoring transaction-service memory limits"
+  kubectl patch deployment transaction-service -n "$NAMESPACE" --type=json -p='[
+    {"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"96Mi"},
+    {"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"192Mi"}
+  ]'
   wait_rollout transaction-service
 }
 
