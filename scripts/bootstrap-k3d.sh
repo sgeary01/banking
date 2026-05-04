@@ -145,6 +145,18 @@ kubectl wait --for=condition=ready pod \
   --all -n banking --timeout=120s
 success "All banking pods ready"
 
+# ── Pre-create monitoring secrets (needed before Helm deploy) ─────────────────
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
+  kubectl create secret generic alertmanager-slack \
+    --from-literal=webhookUrl="${SLACK_WEBHOOK_URL}" \
+    --namespace monitoring \
+    --dry-run=client -o yaml | kubectl apply -f -
+  success "alertmanager-slack secret pre-created"
+else
+  warn "SLACK_WEBHOOK_URL not set — Alertmanager Slack notifications disabled"
+fi
+
 # ── Deploy monitoring ──────────────────────────────────────────────────────────
 info "Deploying monitoring stack (Helm)"
 helm upgrade --install monitoring ./helm/monitoring \
