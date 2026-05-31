@@ -15,6 +15,7 @@ SERVICES=(
   api-gateway auth-service customer-service account-service
   transaction-service ledger-service fraud-service
   notification-service reporting-service chaos-service
+  msteams-relay servicenow-mock
 )
 
 # ── Colours ────────────────────────────────────────────────────────────────────
@@ -87,6 +88,9 @@ else
     --port "30080:30080@server:0" \
     --port "30030:30030@server:0" \
     --port "30093:30093@server:0" \
+    --port "30140:30140@server:0" \
+    --port "30150:30150@server:0" \
+    --port "30560:30560@server:0" \
     --k3s-arg "--disable=traefik@server:0" \
     --wait
   success "Cluster created"
@@ -146,7 +150,20 @@ kubectl wait --for=condition=ready pod \
 success "All banking pods ready"
 
 # ── Pre-create monitoring secrets (needed before Helm deploy) ─────────────────
-kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+# Pre-create the namespace WITH Helm ownership metadata so the monitoring
+# chart (which also defines namespace.yaml) can adopt it. Without this, Helm v4
+# refuses to import the plain kubectl-created namespace.
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: monitoring
+    meta.helm.sh/release-namespace: monitoring
+EOF
 if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
   kubectl create secret generic alertmanager-slack \
     --from-literal=webhookUrl="${SLACK_WEBHOOK_URL}" \
@@ -157,18 +174,32 @@ else
   warn "SLACK_WEBHOOK_URL not set — Alertmanager Slack notifications disabled"
 fi
 
+# Microsoft Teams webhook for msteams-relay (optional — relay falls back to its
+# mock channel view if unset). Coexists with Slack.
+if [[ -n "${TEAMS_WEBHOOK_URL:-}" ]]; then
+  kubectl create secret generic alertmanager-teams \
+    --from-literal=webhookUrl="${TEAMS_WEBHOOK_URL}" \
+    --namespace monitoring \
+    --dry-run=client -o yaml | kubectl apply -f -
+  success "alertmanager-teams secret pre-created"
+else
+  warn "TEAMS_WEBHOOK_URL not set — msteams-relay will only render its mock channel view"
+fi
+
 # ── Deploy monitoring ──────────────────────────────────────────────────────────
 info "Deploying monitoring stack (Helm)"
+# 10m timeout: Elasticsearch + Kibana cold-start (and ~1.6 GB first-time image
+# pulls) can take several minutes when elastic.enabled=true.
 helm upgrade --install monitoring ./helm/monitoring \
   --namespace monitoring --create-namespace \
   --values ./helm/monitoring/values.yaml \
-  --wait --timeout 5m
+  --wait --timeout 10m
 
 success "Monitoring stack deployed"
 
-info "Waiting for monitoring pods to be ready"
+info "Waiting for monitoring pods to be ready (Elastic/Kibana can be slow)"
 kubectl wait --for=condition=ready pod \
-  --all -n monitoring --timeout=120s
+  --all -n monitoring --timeout=420s
 success "All monitoring pods ready"
 
 # ── Resolve satellite ──────────────────────────────────────────────────────────
@@ -269,8 +300,11 @@ echo -e "  ${BOLD}Frontend${RESET}      →  http://localhost:30080"
 echo -e "  ${BOLD}API Gateway${RESET}   →  http://localhost:30000/docs"
 echo -e "  ${BOLD}Grafana${RESET}       →  http://localhost:30030  (admin / admin)"
 echo -e "  ${BOLD}Alertmanager${RESET}  →  http://localhost:30093"
+echo -e "  ${BOLD}ServiceNow${RESET}    →  http://localhost:30140  (mock incident queue)"
+echo -e "  ${BOLD}Teams${RESET}         →  http://localhost:30150  (mock #banking-alerts channel)"
+echo -e "  ${BOLD}Kibana${RESET}        →  http://localhost:30560  (Elastic — index: banking-logs)"
 echo ""
-echo -e "  Login: alice@example.com / password123"
+echo -e "  Login: sarah.chen@atlasfi.com / password123"
 echo ""
 if [[ -n "${RESOLVE_INGEST_TOKEN:-}" ]]; then
   echo -e "  ${BOLD}Resolve satellite${RESET} → connected to dev0.resolve.ai"

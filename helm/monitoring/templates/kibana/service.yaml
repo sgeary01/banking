@@ -1,0 +1,18 @@
+{{- if and .Values.elastic.enabled .Values.elastic.kibana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: monitoring
+  labels:
+    app: kibana
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: kibana
+  ports:
+    - port: 5601
+      targetPort: 5601
+      nodePort: {{ .Values.elastic.kibana.service.nodePort }}
+{{- end }}

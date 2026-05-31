@@ -49,3 +49,18 @@ data:
             timeShiftEnabled: true
             spanStartTimeShift: '-5m'
             spanEndTimeShift: '5m'
+{{- if .Values.elastic.enabled }}
+
+      # Elastic log destination — Fluent Bit ships audit-trail pod logs
+      # (api-gateway, reporting-service) here. Other services go to Loki.
+      - name: Elasticsearch
+        type: elasticsearch
+        uid: banking-elastic
+        access: proxy
+        url: http://elasticsearch.monitoring.svc.cluster.local:9200
+        jsonData:
+          index: "banking-logs"
+          timeField: "@timestamp"
+          logMessageField: "event"
+          logLevelField: "level"
+{{- end }}

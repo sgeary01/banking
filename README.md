@@ -35,6 +35,16 @@ A realistic multi-service banking application built for learning **observability
 | Tempo | Distributed trace storage (OTLP HTTP/gRPC) + metrics generator (service graph + spanmetrics) |
 | Grafana | 6 pre-provisioned dashboards covering traffic, transactions, fraud, service health, logs, and traces |
 
+### Alert & Log Integrations
+
+Deployed into the `monitoring` namespace, these mirror an enterprise customer's toolchain:
+
+| Component | Purpose |
+|---|---|
+| `msteams-relay` | Receives Alertmanager webhooks, posts a card to a real Teams webhook (`TEAMS_WEBHOOK_URL`) when set, and always renders a mock `#banking-alerts` channel at :30150 |
+| `servicenow-mock` | Receives Alertmanager webhooks and opens/resolves incidents; exposes a ServiceNow-style Table API (`/api/now/table/incident`) and an incident-queue UI at :30140 |
+| Elasticsearch + Fluent Bit + Kibana | Fluent Bit ships banking pod logs to a single-node Elasticsearch (index `banking-logs`) in parallel with Loki; Kibana at :30560. Toggle with `elastic.enabled` |
+
 ### Resolve Satellite
 
 The Resolve satellite runs in-cluster and connects to `dev0.resolve.ai`. It provides Resolve with:
@@ -84,8 +94,11 @@ CoreDNS dnstap → resolve-satellite:4444
 | http://localhost:30000 | API gateway (direct) |
 | http://localhost:30030 | Grafana — `admin` / `admin` |
 | http://localhost:30093 | Alertmanager UI |
+| http://localhost:30140 | ServiceNow mock — incident queue |
+| http://localhost:30150 | Teams mock — `#banking-alerts` channel view |
+| http://localhost:30560 | Kibana — Elastic log destination (index `banking-logs`) |
 
-**Default login:** `alice@example.com` / `password123` (and 9 other seeded users)
+**Default login:** `sarah.chen@atlasfi.com` / `password123` (and 9 other seeded users)
 
 ---
 
@@ -100,7 +113,7 @@ CoreDNS dnstap → resolve-satellite:4444
 | `jq` | `brew install jq` |
 | `make` | Included on macOS |
 
-> **Resource budget:** allocate at least 8 GB RAM to Docker Desktop. The full stack uses ~4–5 GB under normal load, more under chaos. The Resolve satellite alone requires ~2 GB.
+> **Resource budget:** allocate at least 8 GB RAM to Docker Desktop — **~12 GB with the Elastic stack enabled** (`elastic.enabled: true`, the default). The full stack uses ~4–5 GB under normal load, more under chaos. The Resolve satellite alone requires ~2 GB, and Elasticsearch + Kibana + Fluent Bit add ~2–3 GB. To run lighter, set `elastic.enabled: false` in `helm/monitoring/values.yaml`.
 
 ---
 
@@ -109,7 +122,8 @@ CoreDNS dnstap → resolve-satellite:4444
 ```bash
 # 1. Copy .env and add your tokens
 cp .env.example .env
-# Edit .env — add RESOLVE_INGEST_TOKEN and SLACK_WEBHOOK_URL
+# Edit .env — add RESOLVE_INGEST_TOKEN, and optionally SLACK_WEBHOOK_URL
+# and/or TEAMS_WEBHOOK_URL (both coexist; Teams falls back to a mock view)
 
 # 2. One command — creates cluster, builds images, deploys everything
 make k3d-up
@@ -120,7 +134,7 @@ The bootstrap script handles everything:
 2. Builds all Docker images and imports them (no registry needed)
 3. Helm-installs the banking app and monitoring stack
 4. Generates a Grafana service account token and creates the `resolve-grafana` secret
-5. Creates the `alertmanager-slack` secret from `SLACK_WEBHOOK_URL`
+5. Creates the `alertmanager-slack` and `alertmanager-teams` secrets from `SLACK_WEBHOOK_URL` / `TEAMS_WEBHOOK_URL` (each optional)
 6. Deploys the Resolve satellite with Grafana + Alertmanager integrations
 7. Patches CoreDNS with dnstap → satellite
 
@@ -135,7 +149,8 @@ Secrets are **never committed to git**. Add them to `.env` — bootstrap reads a
 ```bash
 # .env (copy from .env.example)
 RESOLVE_INGEST_TOKEN=your-resolve-token
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...   # optional
+TEAMS_WEBHOOK_URL=https://...                            # optional (Incoming Webhook / Power Automate)
 ```
 
 | Secret | Namespace | Used by |
@@ -143,6 +158,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 | `resolve-ingest-token` | default | Resolve satellite — ingest auth |
 | `resolve-grafana` | default | Resolve satellite — Grafana API token (auto-generated) |
 | `alertmanager-slack` | monitoring | Alertmanager — Slack webhook |
+| `alertmanager-teams` | monitoring | msteams-relay — Teams webhook (optional; mock view if unset) |
 
 ---
 
@@ -196,10 +212,11 @@ make promtail-logs   # debug log discovery issues
 
 ### Alertmanager Routing
 
-- **Critical alerts** → `#banking-alerts` Slack, 10s group wait
-- **Warning alerts** → `#banking-alerts` Slack, 30s group wait
+- **Fan-out:** every alert routes to **Slack** + **Microsoft Teams** (via `msteams-relay`) + **ServiceNow** (incident created in `servicenow-mock`) simultaneously
+- **Critical alerts** → 10s group wait
+- **Warning alerts** → 30s group wait
 - **Inhibition:** `ServiceDown` suppresses `HighErrorRate` + `HighLatency` for the same service
-- **Resolved:** automatic follow-up posted to Slack when alert clears
+- **Resolved:** automatic follow-up to Slack/Teams and ServiceNow incident moves to Resolved when the alert clears
 
 ### Alertmanager UI Filters
 

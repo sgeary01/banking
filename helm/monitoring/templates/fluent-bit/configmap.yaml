@@ -1,0 +1,63 @@
+{{- if .Values.elastic.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: monitoring
+  labels:
+    app: fluent-bit
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Daemon        Off
+        Log_Level     info
+        Parsers_File  parsers.conf
+
+    # Elastic carries the audit-trail services: api-gateway (every proxied request)
+    # and reporting-service (business events). These services emit rich structlog JSON.
+    # Everything else (transaction, account, fraud, auth, ledger, notification, ...)
+    # goes to Loki via Promtail.
+    [INPUT]
+        Name              tail
+        Tag               banking.*
+        Path              /var/log/pods/{{ .Values.bankingNamespace }}_api-gateway*/*/*.log,/var/log/pods/{{ .Values.bankingNamespace }}_reporting-service*/*/*.log
+        Parser            cri
+        Refresh_Interval  5
+        Skip_Long_Lines   On
+        DB                /var/lib/fluent-bit/flb-banking.db
+
+    # The CRI 'log' field is the structlog JSON line — parse it so fields
+    # (service, level, event, trace_id, request_id, ...) become top-level.
+    [FILTER]
+        Name         parser
+        Match        banking.*
+        Key_Name     log
+        Parser       structlog_json
+        Reserve_Data On
+
+    [OUTPUT]
+        Name               es
+        Match              banking.*
+        Host               elasticsearch.monitoring.svc.cluster.local
+        Port               9200
+        Index              banking-logs
+        Suppress_Type_Name On
+        Logstash_Format    Off
+        Retry_Limit        False
+
+  parsers.conf: |
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+    [PARSER]
+        Name        structlog_json
+        Format      json
+        Time_Key    timestamp
+        Time_Keep   On
+{{- end }}

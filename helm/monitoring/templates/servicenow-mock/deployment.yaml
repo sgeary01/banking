@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servicenow-mock
+  namespace: monitoring
+  labels:
+    app: servicenow-mock
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servicenow-mock
+  template:
+    metadata:
+      labels:
+        app: servicenow-mock
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.servicenowMock.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: servicenow-mock
+          image: {{ .Values.servicenowMock.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ .Values.servicenowMock.port }}
+          env:
+            - name: SERVICE_NAME
+              value: "servicenow-mock"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://tempo.monitoring.svc.cluster.local:4318"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ .Values.servicenowMock.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.servicenowMock.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 150m
+              memory: 128Mi

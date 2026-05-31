@@ -1,0 +1,18 @@
+{{- if and .Values.elastic.enabled .Values.elastic.storage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-data
+  namespace: monitoring
+  labels:
+    app: elasticsearch
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.elastic.storage.size }}
+  {{- if .Values.elastic.storage.storageClass }}
+  storageClassName: {{ .Values.elastic.storage.storageClass }}
+  {{- end }}
+{{- end }}

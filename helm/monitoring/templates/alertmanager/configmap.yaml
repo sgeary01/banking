@@ -42,6 +42,13 @@ data:
             username: 'Alertmanager'
             title: '{{ "{{" }} template "slack.title" . {{ "}}" }}'
             text: '{{ "{{" }} template "slack.text" . {{ "}}" }}'
+        # Microsoft Teams (via msteams-relay) + ServiceNow incident creation.
+        # These run alongside Slack — one alert fans out to all three.
+        webhook_configs:
+          - url: 'http://msteams-relay.monitoring.svc.cluster.local:8080/alerts'
+            send_resolved: true
+          - url: 'http://servicenow-mock.monitoring.svc.cluster.local:8080/api/now/webhook'
+            send_resolved: true
 
       - name: 'slack-warning'
         slack_configs:
@@ -51,6 +58,11 @@ data:
             username: 'Alertmanager'
             title: '{{ "{{" }} template "slack.title" . {{ "}}" }}'
             text: '{{ "{{" }} template "slack.text" . {{ "}}" }}'
+        webhook_configs:
+          - url: 'http://msteams-relay.monitoring.svc.cluster.local:8080/alerts'
+            send_resolved: true
+          - url: 'http://servicenow-mock.monitoring.svc.cluster.local:8080/api/now/webhook'
+            send_resolved: true
 
     inhibit_rules:
       - source_matchers:

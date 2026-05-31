@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msteams-relay
+  namespace: monitoring
+  labels:
+    app: msteams-relay
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msteams-relay
+  template:
+    metadata:
+      labels:
+        app: msteams-relay
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.msteamsRelay.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: msteams-relay
+          image: {{ .Values.msteamsRelay.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ .Values.msteamsRelay.port }}
+          env:
+            - name: SERVICE_NAME
+              value: "msteams-relay"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://tempo.monitoring.svc.cluster.local:4318"
+            # Real Teams Incoming Webhook / Power Automate URL.
+            # Optional — if the secret is absent, the relay only renders the mock view.
+            - name: TEAMS_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: alertmanager-teams
+                  key: webhookUrl
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ .Values.msteamsRelay.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.msteamsRelay.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 150m
+              memory: 128Mi

@@ -49,3 +49,38 @@ grafana:
   service:
     type: NodePort
     nodePort: 30030
+
+# ── Alert-routing integrations (Atlas Financial) ───────────────────
+# Relay + mock services built from the banking shared base image, so their
+# images come through the same build/import path as the banking services.
+msteamsRelay:
+  image: banking/msteams-relay:latest
+  port: 8080
+  service:
+    nodePort: 30150
+
+servicenowMock:
+  image: banking/servicenow-mock:latest
+  port: 8080
+  service:
+    nodePort: 30140
+
+# ── Elastic log destination (Atlas Financial) ──────────────────────
+# Single-node Elasticsearch + a Fluent Bit shipper + Kibana, mirroring
+# the customer's Elastic stack. Promtail→Loki stays untouched.
+# HEAVY: adds ~2-3 GB RAM. Bump Docker Desktop to ~12 GB before enabling.
+elastic:
+  enabled: true
+  image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+  javaOpts: "-Xms512m -Xmx512m"
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+  fluentBit:
+    image: cr.fluentbit.io/fluent/fluent-bit:3.0.4
+  kibana:
+    enabled: true
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    service:
+      nodePort: 30560

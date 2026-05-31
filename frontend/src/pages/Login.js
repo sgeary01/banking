@@ -4,17 +4,17 @@ import { login } from '../services/api';
 const s = {
   page: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7fa' },
   card: { background: '#fff', borderRadius: 12, padding: 40, width: 380, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
-  logo: { textAlign: 'center', fontSize: 22, fontWeight: 700, color: '#6c63ff', marginBottom: 8 },
+  logo: { textAlign: 'center', fontSize: 22, fontWeight: 700, color: '#1E40AF', marginBottom: 8 },
   sub: { textAlign: 'center', color: '#888', fontSize: 14, marginBottom: 28 },
   label: { display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: '#333' },
   input: { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14, marginBottom: 16, outline: 'none' },
-  btn: { width: '100%', padding: '12px', background: '#6c63ff', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' },
+  btn: { width: '100%', padding: '12px', background: '#1E40AF', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' },
   error: { background: '#fff0f0', color: '#d00', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 },
   hint: { textAlign: 'center', color: '#aaa', fontSize: 12, marginTop: 20 },
 };
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('alice@example.com');
+  const [email, setEmail] = useState('sarah.chen@atlasfi.com');
   const [password, setPassword] = useState('password123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,8 +36,8 @@ export default function Login({ onLogin }) {
   return (
     <div style={s.page}>
       <div style={s.card}>
-        <div style={s.logo}>RESOLVE BANK</div>
-        <div style={s.sub}>O11y Demo Platform</div>
+        <div style={s.logo}>Atlas Financial</div>
+        <div style={s.sub}>Online Banking · Customer Portal</div>
         {error && <div style={s.error}>{error}</div>}
         <form onSubmit={handleSubmit}>
           <label style={s.label}>Email</label>
@@ -48,7 +48,7 @@ export default function Login({ onLogin }) {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-        <div style={s.hint}>Seed users: alice@example.com / password123</div>
+        <div style={s.hint}>Seed users: sarah.chen@atlasfi.com / password123</div>
       </div>
     </div>
   );

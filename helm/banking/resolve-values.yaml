@@ -18,3 +18,15 @@ integrations:
     create: true
     connection:
       url: http://alertmanager.monitoring.svc.cluster.local:9093
+  elasticsearch-banking:
+    type: elasticsearch
+    create: true
+    connection:
+      url: http://elasticsearch.monitoring.svc.cluster.local:9200
+      # no auth — xpack security disabled on this cluster
+      # index: banking-logs
+  loki-banking:
+    type: loki
+    create: true
+    connection:
+      url: http://loki.monitoring.svc.cluster.local:3100

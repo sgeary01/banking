@@ -3,7 +3,8 @@ TAG      ?= latest
 
 SERVICES = api-gateway auth-service customer-service account-service \
            transaction-service ledger-service fraud-service \
-           notification-service reporting-service chaos-service
+           notification-service reporting-service chaos-service \
+           msteams-relay servicenow-mock
 
 .PHONY: build-base build build-service \
         up down \

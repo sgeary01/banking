@@ -1,0 +1,45 @@
+{{- if and .Values.elastic.enabled .Values.elastic.kibana.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: monitoring
+  labels:
+    app: kibana
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+        - name: kibana
+          image: {{ .Values.elastic.kibana.image }}
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch.monitoring.svc.cluster.local:9200"
+            - name: SERVER_PUBLICBASEURL
+              value: "http://localhost:{{ .Values.elastic.kibana.service.nodePort }}"
+          ports:
+            - containerPort: 5601
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 5601
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: 100m
+              memory: 768Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+{{- end }}

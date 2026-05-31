@@ -17,16 +17,16 @@ const NAV = [
 
 const styles = {
   nav: { background: '#1a1a2e', color: '#fff', display: 'flex', alignItems: 'center', padding: '0 24px', height: 56, gap: 8 },
-  logo: { fontWeight: 700, fontSize: 18, marginRight: 24, color: '#6c63ff', letterSpacing: 1 },
+  logo: { fontWeight: 700, fontSize: 18, marginRight: 24, color: '#1E40AF', letterSpacing: 1 },
   link: { color: '#ccc', textDecoration: 'none', padding: '6px 14px', borderRadius: 6, fontSize: 14 },
-  activeLink: { color: '#fff', background: '#6c63ff' },
+  activeLink: { color: '#fff', background: '#1E40AF' },
   logout: { marginLeft: 'auto', background: 'transparent', border: '1px solid #444', color: '#ccc', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 14 },
 };
 
 function NavBar({ onLogout }) {
   return (
     <nav style={styles.nav}>
-      <span style={styles.logo}>RESOLVE BANK</span>
+      <span style={styles.logo}>Atlas Financial</span>
       {NAV.map(n => (
         <NavLink key={n.to} to={n.to} style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.activeLink : {}) })}>
           {n.label}

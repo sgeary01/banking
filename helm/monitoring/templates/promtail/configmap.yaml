@@ -21,6 +21,9 @@ data:
 
     scrape_configs:
       - job_name: banking-pods
+        # Loki carries operational/edge services only — split with Elastic, which
+        # carries the audit-trail services (api-gateway, reporting-service). The
+        # `drop` stage below removes those two so they go to Elastic only.
         static_configs:
           - targets: [localhost]
             labels:
@@ -35,6 +38,10 @@ data:
               source: filename
           - labels:
               service:
+          # Audit-trail services go to Elastic only; drop them here.
+          - match:
+              selector: '{service=~"api-gateway.*|reporting-service.*"}'
+              action: drop
 
           # Unwrap CRI log format used by k3s/containerd:
           # <timestamp> <stream> <flags> <actual log content>

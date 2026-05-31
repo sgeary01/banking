@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Banking lab — Atlas Financial</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #8a93a4;
+    --accent: #1E40AF;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 28px 64px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  h1 .sub { color: var(--muted); font-weight: 400; margin-left: 10px; font-size: 14px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 28px 0 12px;
+    font-weight: 600;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card .name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .card .name a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .card .name a:hover { color: var(--accent); }
+  .card .port {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--panel2);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .card .desc { color: var(--muted); font-size: 13px; }
+  .card .creds {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .card .creds .copy {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+  }
+  .card .creds .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .card .creds .copy.copied { color: var(--good); border-color: var(--good); }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .links a {
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    background: var(--panel2);
+  }
+  .links a:hover { color: var(--accent); border-color: var(--accent); }
+  .note {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .note code, code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--panel2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 12px;
+  }
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--text);
+  }
+  .cmd {
+    background: #0a0c10;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #c9d1d9;
+    overflow-x: auto;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Banking lab <span class="sub">Atlas Financial · k3d-banking</span></h1>
+  <div class="meta">All URLs are localhost NodePorts on the k3d cluster. Cluster must be running.</div>
+</header>
+
+<h2>App</h2>
+<div class="grid">
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30080" target="_blank">Atlas Financial banking app</a></div>
+      <div class="port">:30080</div>
+    </div>
+    <div class="desc">The reskinned frontend. Browser-facing demo target.</div>
+    <div class="creds">
+      <span>sarah.chen@atlasfi.com / password123</span>
+      <button class="copy" data-copy="sarah.chen@atlasfi.com">copy</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30000/docs" target="_blank">API gateway (Swagger)</a></div>
+      <div class="port">:30000</div>
+    </div>
+    <div class="desc">FastAPI gateway routing to all 8 backend services.</div>
+    <div class="links">
+      <a href="http://localhost:30000/docs" target="_blank">Swagger UI</a>
+      <a href="http://localhost:30000/openapi.json" target="_blank">openapi.json</a>
+    </div>
+  </div>
+
+</div>
+
+<h2>Observability</h2>
+<div class="grid">
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30030" target="_blank">Grafana</a></div>
+      <div class="port">:30030</div>
+    </div>
+    <div class="desc">Metrics (Prometheus), logs (Loki), traces (Tempo), Elasticsearch datasource.</div>
+    <div class="creds">
+      <span>admin / admin</span>
+      <button class="copy" data-copy="admin">copy</button>
+    </div>
+    <div class="links">
+      <a href="http://localhost:30030/dashboards" target="_blank">Dashboards</a>
+      <a href="http://localhost:30030/explore" target="_blank">Explore</a>
+      <a href="http://localhost:30030/alerting/list" target="_blank">Alerting</a>
+      <a href="http://localhost:30030/connections/datasources" target="_blank">Datasources</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30560" target="_blank">Kibana</a></div>
+      <div class="port">:30560</div>
+    </div>
+    <div class="desc">Elasticsearch UI. Index: <code>banking-logs</code>. Time field: <code>@timestamp</code>.</div>
+    <div class="links">
+      <a href="http://localhost:30560/app/discover" target="_blank">Discover</a>
+      <a href="http://localhost:30560/app/management/kibana/dataViews" target="_blank">Data views</a>
+      <a href="http://localhost:30560/app/dev_tools#/console" target="_blank">Dev tools (console)</a>
+    </div>
+    <div class="note" style="margin-top:4px; border-left-color: var(--warn);">
+      First visit: <b>Stack Management → Data Views → Create</b>, pattern <code>banking-logs</code>, time field <code>@timestamp</code>. Then Discover works.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30093" target="_blank">Alertmanager</a></div>
+      <div class="port">:30093</div>
+    </div>
+    <div class="desc">Active alerts + silences. Receivers fan out to Slack, Teams relay, ServiceNow mock.</div>
+    <div class="links">
+      <a href="http://localhost:30093/#/alerts" target="_blank">Alerts</a>
+      <a href="http://localhost:30093/#/silences" target="_blank">Silences</a>
+      <a href="http://localhost:30093/#/status" target="_blank">Status / config</a>
+    </div>
+  </div>
+
+</div>
+
+<h2>Alert sinks (mock customer channels)</h2>
+<div class="grid">
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30150" target="_blank">Microsoft Teams (mock)</a></div>
+      <div class="port">:30150</div>
+    </div>
+    <div class="desc">Renders <code>#banking-alerts</code> channel view. POST endpoint <code>/api/messages</code> accepts Alertmanager webhooks.</div>
+    <div class="note" style="margin-top:4px;">
+      <code>TEAMS_WEBHOOK_URL</code> is blank → mock-only. Set it to a real Incoming Webhook to also post to a real channel.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><a href="http://localhost:30140" target="_blank">ServiceNow (mock)</a></div>
+      <div class="port">:30140</div>
+    </div>
+    <div class="desc">Incident queue UI. Alertmanager creates rows via <code>/api/now/table/incident</code>.</div>
+    <div class="links">
+      <a href="http://localhost:30140/" target="_blank">Queue UI</a>
+      <a href="http://localhost:30140/api/now/table/incident" target="_blank">/api/now/table/incident</a>
+    </div>
+  </div>
+
+</div>
+
+<h2>Quick commands</h2>
+<div class="note">
+  <b>Reliable demo trigger (no code change):</b>
+  <div class="cmd">kubectl scale deployment reporting-service -n banking --replicas=0   # fire ServiceDown
+kubectl scale deployment reporting-service -n banking --replicas=1   # clear</div>
+</div>
+
+<div class="note">
+  <b>Inspect Elastic from the shell:</b>
+  <div class="cmd">kubectl --context k3d-banking exec -n monitoring deploy/elasticsearch -- \
+  curl -s 'http://localhost:9200/banking-logs/_count'
+
+# 5 most recent structured logs
+kubectl --context k3d-banking exec -n monitoring deploy/elasticsearch -- \
+  curl -s 'http://localhost:9200/banking-logs/_search?size=5&pretty' \
+  -H 'Content-Type: application/json' \
+  -d '{"query":{"exists":{"field":"event"}},"sort":[{"@timestamp":"desc"}]}'</div>
+</div>
+
+<div class="note">
+  <b>Cluster lifecycle:</b>
+  <div class="cmd">kubectl config use-context k3d-banking
+kubectl get pods -A
+k3d cluster stop banking            # pause to save resources
+k3d cluster start banking           # resume
+make -C ~/gitrepos/resolve/banking k3d-rebuild     # rebuild all + reimport + restart</div>
+</div>
+
+<script>
+  document.querySelectorAll('.copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.textContent;
+        btn.textContent = 'copied';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.classList.remove('copied');
+        }, 1200);
+      } catch (e) {
+        btn.textContent = 'failed';
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

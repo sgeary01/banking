@@ -18,16 +18,16 @@ ACCOUNT_URL = os.getenv("ACCOUNT_SERVICE_URL", "http://localhost:8003")
 TX_URL = os.getenv("TRANSACTION_SERVICE_URL", "http://localhost:8004")
 
 CUSTOMERS = [
-    {"first_name": "Alice",   "last_name": "Johnson",  "email": "alice@example.com",   "phone": "555-0101", "address": "123 Main St, Springfield"},
-    {"first_name": "Bob",     "last_name": "Williams",  "email": "bob@example.com",     "phone": "555-0102", "address": "456 Oak Ave, Shelbyville"},
-    {"first_name": "Carol",   "last_name": "Martinez",  "email": "carol@example.com",   "phone": "555-0103", "address": "789 Pine Rd, Capital City"},
-    {"first_name": "David",   "last_name": "Brown",     "email": "david@example.com",   "phone": "555-0104", "address": "321 Elm St, Ogdenville"},
-    {"first_name": "Eve",     "last_name": "Davis",     "email": "eve@example.com",     "phone": "555-0105", "address": "654 Maple Dr, North Haverbrook"},
-    {"first_name": "Frank",   "last_name": "Wilson",    "email": "frank@example.com",   "phone": "555-0106", "address": "987 Cedar Ln, Brockway"},
-    {"first_name": "Grace",   "last_name": "Anderson",  "email": "grace@example.com",   "phone": "555-0107", "address": "147 Birch Blvd, Springfield"},
-    {"first_name": "Henry",   "last_name": "Taylor",    "email": "henry@example.com",   "phone": "555-0108", "address": "258 Walnut Way, Shelbyville"},
-    {"first_name": "Iris",    "last_name": "Thomas",    "email": "iris@example.com",    "phone": "555-0109", "address": "369 Spruce St, Capital City"},
-    {"first_name": "Jack",    "last_name": "Jackson",   "email": "jack@example.com",    "phone": "555-0110", "address": "741 Ash Ave, Ogdenville"},
+    {"first_name": "Sarah",   "last_name": "Chen",      "email": "sarah.chen@atlasfi.com",       "phone": "555-0101", "address": "100 Main St, New York, NY"},
+    {"first_name": "Michael", "last_name": "Rodriguez", "email": "michael.rodriguez@atlasfi.com", "phone": "555-0102", "address": "210 Oak Ave, Newark, NJ"},
+    {"first_name": "Jennifer","last_name": "Park",      "email": "jennifer.park@atlasfi.com",     "phone": "555-0103", "address": "44 Elm St, Boston, MA"},
+    {"first_name": "David",   "last_name": "Thompson",  "email": "david.thompson@atlasfi.com",    "phone": "555-0104", "address": "812 Pine Rd, Charlotte, NC"},
+    {"first_name": "Emily",   "last_name": "Nguyen",    "email": "emily.nguyen@atlasfi.com",      "phone": "555-0105", "address": "55 Cedar Ln, Tampa, FL"},
+    {"first_name": "James",   "last_name": "Patel",     "email": "james.patel@atlasfi.com",       "phone": "555-0106", "address": "1100 Lake Dr, Chicago, IL"},
+    {"first_name": "Olivia",  "last_name": "Martins",   "email": "olivia.martins@atlasfi.com",    "phone": "555-0107", "address": "27 River Rd, Hartford, CT"},
+    {"first_name": "Daniel",  "last_name": "Cohen",     "email": "daniel.cohen@atlasfi.com",      "phone": "555-0108", "address": "640 Hudson St, Jersey City, NJ"},
+    {"first_name": "Sophia",  "last_name": "Reyes",     "email": "sophia.reyes@atlasfi.com",      "phone": "555-0109", "address": "318 Walnut St, Philadelphia, PA"},
+    {"first_name": "William", "last_name": "Okafor",    "email": "william.okafor@atlasfi.com",    "phone": "555-0110", "address": "75 Atlantic Ave, Stamford, CT"},
 ]
 
 PASSWORD = "password123"
@@ -201,7 +201,7 @@ def main():
     generate_transactions(all_account_ids)
 
     print("\n✓ Seed complete!")
-    print(f"  Login with any seed user, e.g. alice@example.com / {PASSWORD}")
+    print(f"  Login with any seed user, e.g. sarah.chen@atlasfi.com / {PASSWORD}")
 
 
 if __name__ == "__main__":
