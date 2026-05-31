@@ -143,6 +143,13 @@ prometheus-forward:
 	kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
 # ── Resolve ─────────────────────────────────────────────────────
+## Print (and copy to clipboard) the current Grafana SA token so it can be
+## pasted into the Resolve UI's Grafana integration after each bootstrap.
+grafana-token:
+	@TOKEN=$$(kubectl get secret resolve-grafana -n default -o jsonpath='{.data.apiToken}' | base64 -d); \
+	echo "$$TOKEN"; \
+	command -v pbcopy >/dev/null 2>&1 && printf '%s' "$$TOKEN" | pbcopy && echo "(copied to clipboard)" || true
+
 ## Regenerate Grafana service account token and restart the satellite
 grafana-token-refresh:
 	@echo "Refreshing Grafana service account token..."
