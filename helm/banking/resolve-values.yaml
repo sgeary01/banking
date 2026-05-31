@@ -5,6 +5,12 @@ ingest:
 clusterName: banking
 environment: smg-production
 
+# Pin all integration config to this file. Disables Resolve SaaS UI-side
+# overrides for this satellite — anything you add or change in the Resolve UI
+# is ignored. Keeps the cluster reproducible across bootstraps with zero
+# manual UI cleanup. Manage integrations only here.
+configOverride: false
+
 integrations:
   grafana:
     type: grafana
@@ -29,3 +35,13 @@ integrations:
     create: true
     connection:
       url: http://loki.monitoring.svc.cluster.local:3100
+  prometheus:
+    type: prometheus
+    create: true
+    connection:
+      url: http://prometheus.monitoring.svc.cluster.local:9090
+  tempo:
+    type: tempo
+    create: true
+    connection:
+      url: http://tempo.monitoring.svc.cluster.local:3200
