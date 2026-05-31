@@ -38,7 +38,7 @@ data:
               summary: "High error rate on {{ "{{" }} $labels.job {{ "}}" }}"
               description: "{{ "{{" }} $labels.job {{ "}}" }} error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} over the last 2 minutes."
 
-          - alert: CriticalErrorRate
+          - alert: ClaimsProcessingErrorRate
             expr: |
               (
                 sum by (job) (rate(http_requests_total{status="5xx"}[2m]))
@@ -50,7 +50,7 @@ data:
               severity: critical
             annotations:
               summary: "Critical error rate on {{ "{{" }} $labels.job {{ "}}" }}"
-              description: "{{ "{{" }} $labels.job {{ "}}" }} error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} — more than 25% of requests failing."
+              description: "{{ "{{" }} $labels.job {{ "}}" }} error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} — more than 25% of claim submissions failing."
 
       - name: banking.latency
         interval: 15s
@@ -105,15 +105,15 @@ data:
               summary: "High 4xx rate on {{ "{{" }} $labels.job {{ "}}" }}"
               description: "{{ "{{" }} $labels.job {{ "}}" }} has {{ "{{" }} $value | humanizePercentage {{ "}}" }} client error rate — possible auth or routing issue."
 
-      - name: banking.fraud
+      - name: banking.investigations
         interval: 15s
         rules:
-          - alert: FraudSpikeDetected
+          - alert: SuspiciousClaimsSpike
             expr: |
               sum(rate(http_requests_total{job="fraud-service", status="2xx"}[5m])) > 0.5
             for: 1m
             labels:
               severity: warning
             annotations:
-              summary: "Elevated fraud check rate"
-              description: "Fraud service is processing {{ "{{" }} $value | humanize {{ "}}" }} checks/sec — potential fraud spike in progress."
+              summary: "Elevated claim investigation rate"
+              description: "Claim investigation service is processing {{ "{{" }} $value | humanize {{ "}}" }} reviews/sec — potential suspicious-claim spike in progress."

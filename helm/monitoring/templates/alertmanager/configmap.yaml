@@ -29,7 +29,7 @@ data:
           receiver: 'slack-critical'
 
         - matchers:
-            - alertname = FraudSpikeDetected
+            - alertname = SuspiciousClaimsSpike
           group_by: ['alertname']
           receiver: 'slack-warning'
 

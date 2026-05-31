@@ -102,32 +102,32 @@ confirm() {
 # ── App-level chaos actions ────────────────────────────────────────────────────
 
 do_payment_outage() {
-  echo -e "\n  ${RED}Triggering payment outage...${RESET}"
-  api_trigger payment_outage
+  echo -e "\n  ${RED}Triggering claims processing outage...${RESET}"
+  api_trigger claims_processing_outage
   echo -e "  ${GREEN}✓ Done${RESET}"
-  echo -e "\n  ${DIM}transaction-service → ~50% errors"
-  echo -e "  Alerts: CriticalErrorRate (1m), FraudSpikeDetected (side effect)"
-  echo -e "  Dashboard: Transactions & Payments${RESET}"
+  echo -e "\n  ${DIM}transaction-service (claims backend) → ~50% errors"
+  echo -e "  Alerts: ClaimsProcessingErrorRate (1m), SuspiciousClaimsSpike (side effect)"
+  echo -e "  Dashboard: Claims & Premiums${RESET}"
   press_enter
 }
 
 do_high_latency() {
-  echo -e "\n  ${RED}Triggering high latency...${RESET}"
-  api_trigger high_latency
+  echo -e "\n  ${RED}Triggering policy lookup latency...${RESET}"
+  api_trigger policy_lookup_latency
   echo -e "  ${GREEN}✓ Done${RESET}"
-  echo -e "\n  ${DIM}account-service → 3s delay on all requests"
+  echo -e "\n  ${DIM}account-service (policy lookup) → 3s delay on all requests"
   echo -e "  Alerts: HighLatency (2m)"
-  echo -e "  Dashboard: Service Health, Overview${RESET}"
+  echo -e "  Dashboard: Service Health, Coverage Overview${RESET}"
   press_enter
 }
 
 do_fraud_spike() {
-  echo -e "\n  ${RED}Triggering fraud spike...${RESET}"
-  api_trigger fraud_spike
+  echo -e "\n  ${RED}Triggering suspicious claims spike...${RESET}"
+  api_trigger suspicious_claims_spike
   echo -e "  ${GREEN}✓ Done${RESET}"
-  echo -e "\n  ${DIM}Burst of high-value transactions → fraud scoring overload"
-  echo -e "  Alerts: FraudSpikeDetected (1m)"
-  echo -e "  Dashboard: Fraud & Risk${RESET}"
+  echo -e "\n  ${DIM}Burst of high-value claim submissions → investigation service overload"
+  echo -e "  Alerts: SuspiciousClaimsSpike (1m)"
+  echo -e "  Dashboard: Claim Investigations${RESET}"
   press_enter
 }
 
@@ -135,9 +135,9 @@ do_cascade() {
   echo -e "\n  ${RED}Triggering cascade failure...${RESET}"
   api_trigger cascade_failure
   echo -e "  ${GREEN}✓ Done${RESET}"
-  echo -e "\n  ${DIM}transaction-service + account-service both degraded"
-  echo -e "  Alerts: CriticalErrorRate + HighLatency simultaneously"
-  echo -e "  Dashboard: Overview, Service Health${RESET}"
+  echo -e "\n  ${DIM}Claims + policy lookup services both degraded"
+  echo -e "  Alerts: ClaimsProcessingErrorRate + HighLatency simultaneously"
+  echo -e "  Dashboard: Coverage Overview, Service Health${RESET}"
   press_enter
 }
 
@@ -145,7 +145,7 @@ do_notification_flood() {
   echo -e "\n  ${RED}Triggering notification flood...${RESET}"
   api_trigger notification_flood
   echo -e "  ${GREEN}✓ Done${RESET}"
-  echo -e "\n  ${DIM}Many small transactions → notification-service latency"
+  echo -e "\n  ${DIM}Many claim submissions → notification-service latency"
   echo -e "  Alerts: HighLatency on notification-service (2m)"
   echo -e "  Dashboard: Service Health${RESET}"
   press_enter

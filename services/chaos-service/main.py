@@ -30,29 +30,29 @@ SERVICE_URLS = {
 
 # Pre-defined chaos scenarios
 SCENARIOS = {
-    "payment_outage": {
-        "description": "Transaction service returning 50% errors — payments failing",
+    "claims_processing_outage": {
+        "description": "Claims processing service returning 50% errors — claim submissions failing",
         "services": {"transaction-service": {"latency_ms": 0, "error_rate": 0.5}},
         "generator": "transaction_load",
         "load_count": 60,
         "load_high_value": False,
     },
-    "high_latency": {
-        "description": "Account service slow — 3 second delays on all account operations",
+    "policy_lookup_latency": {
+        "description": "Policy lookup service slow — 3 second delays on all member coverage queries",
         "services": {"account-service": {"latency_ms": 3000, "error_rate": 0.0}},
         "generator": "transaction_load",
         "load_count": 30,
         "load_high_value": False,
     },
-    "fraud_spike": {
-        "description": "Generates a burst of high-value transactions to trigger fraud alerts",
+    "suspicious_claims_spike": {
+        "description": "Burst of high-value claim submissions to trigger investigation alerts",
         "services": {},
         "generator": "fraud_spike",
         "load_count": 20,
         "load_high_value": True,
     },
     "cascade_failure": {
-        "description": "Transaction + account services both degraded — tests circuit breaking",
+        "description": "Claims + policy lookup services both degraded — tests circuit breaking",
         "services": {
             "transaction-service": {"latency_ms": 2000, "error_rate": 0.3},
             "account-service": {"latency_ms": 1000, "error_rate": 0.2},
@@ -62,7 +62,7 @@ SCENARIOS = {
         "load_high_value": False,
     },
     "notification_flood": {
-        "description": "Generates many small transactions to flood the notification service",
+        "description": "Generates many claim submissions to flood the member notification service",
         "services": {},
         "generator": "notification_flood",
         "load_count": 40,
