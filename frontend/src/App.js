@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -6,6 +6,7 @@ import Accounts from './pages/Accounts';
 import Transactions from './pages/Transactions';
 import FraudAlerts from './pages/FraudAlerts';
 import ChaosPanel from './pages/ChaosPanel';
+import { listCustomers, login as apiLogin } from './services/api';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -37,9 +38,16 @@ function NavBar({ onLogout }) {
   );
 }
 
+// Demo mode: app auto-authenticates as the first seeded member on load.
+// This avoids needing to know any credentials. Toggle by setting
+// REACT_APP_AUTO_LOGIN=false at build time to fall back to the manual form.
+const AUTO_LOGIN = (process.env.REACT_APP_AUTO_LOGIN || 'true') !== 'false';
+const DEMO_PASSWORD = 'password123';
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [customerId, setCustomerId] = useState(localStorage.getItem('customerId'));
+  const [autoLoginError, setAutoLoginError] = useState(null);
 
   const handleLogin = (tok, custId) => {
     localStorage.setItem('token', tok);
@@ -54,7 +62,32 @@ export default function App() {
     setCustomerId(null);
   };
 
-  if (!token) return <Login onLogin={handleLogin} />;
+  useEffect(() => {
+    if (token || !AUTO_LOGIN) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await listCustomers(0, 1);
+        const first = Array.isArray(res.data) && res.data[0];
+        if (!first) throw new Error('no seeded members yet');
+        const r = await apiLogin(first.email, DEMO_PASSWORD);
+        if (cancelled) return;
+        handleLogin(r.data.access_token, r.data.customer_id || first.id);
+      } catch (e) {
+        if (!cancelled) setAutoLoginError(e.message || 'auto-login failed');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (!token) {
+    if (!AUTO_LOGIN || autoLoginError) return <Login onLogin={handleLogin} />;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#888', fontSize: 14 }}>
+        Signing in…
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>
