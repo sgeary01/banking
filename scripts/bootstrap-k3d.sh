@@ -309,4 +309,33 @@ echo ""
 if [[ -n "${RESOLVE_INGEST_TOKEN:-}" ]]; then
   echo -e "  ${BOLD}Resolve satellite${RESET} → connected to dev0.resolve.ai"
   echo ""
+
+  # ── Grafana token reminder — needs a one-time UI paste each bootstrap ──────
+  # The satellite's Grafana integration requires SaaS-side config push for
+  # auth, so the K8s-secret-mounted token has to be re-pasted into the
+  # Resolve UI's Grafana integration after every fresh bootstrap. Print it
+  # loudly and copy to clipboard so it's the last thing the operator sees.
+  GRAFANA_TOK=$(kubectl get secret resolve-grafana -n default -o jsonpath='{.data.apiToken}' 2>/dev/null | base64 -d 2>/dev/null)
+  if [[ -n "$GRAFANA_TOK" ]]; then
+    if command -v pbcopy >/dev/null 2>&1; then
+      printf '%s' "$GRAFANA_TOK" | pbcopy
+      CLIP_NOTE=" (already copied to clipboard)"
+    else
+      CLIP_NOTE=""
+    fi
+    echo -e "${YELLOW}${BOLD}╔══════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${YELLOW}${BOLD}║  ACTION REQUIRED — paste fresh Grafana token into Resolve UI ║${RESET}"
+    echo -e "${YELLOW}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo -e "  Token${CLIP_NOTE}:"
+    echo -e "    ${BOLD}${GRAFANA_TOK}${RESET}"
+    echo ""
+    echo -e "  Where: Resolve UI → Integrations → Grafana → API key field"
+    echo -e "  Why:   satellite's Grafana auth requires SaaS-side push;"
+    echo -e "         every bootstrap mints a new SA token. Other integrations"
+    echo -e "         (Loki, Elastic, Prometheus, Alertmanager) need no UI step."
+    echo ""
+    echo -e "  Re-fetch this token any time:  ${BOLD}make grafana-token${RESET}"
+    echo ""
+  fi
 fi
