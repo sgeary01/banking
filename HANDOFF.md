@@ -28,7 +28,7 @@ Full design + rationale: `~/.claude/plans/floating-wishing-fox.md`.
 | http://localhost:30030 | Grafana (admin/admin) — has Prometheus, Loki, Tempo, **Elasticsearch** datasources |
 | http://localhost:30093 | Alertmanager |
 | http://localhost:30140 | ServiceNow mock — incident queue UI + `/api/now/table/incident` |
-| http://localhost:30150 | Teams mock — `#banking-alerts` channel + `/api/messages` |
+| http://localhost:30150 | Teams mock — `#atlas-app-alerts` channel + `/api/messages` |
 | http://localhost:30560 | Kibana (Elastic, index `banking-logs`) |
 | http://localhost:30000/docs | API gateway |
 

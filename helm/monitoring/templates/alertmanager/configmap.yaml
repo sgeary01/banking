@@ -36,7 +36,7 @@ data:
     receivers:
       - name: 'slack-critical'
         slack_configs:
-          - channel: '#banking-alerts'
+          - channel: '#atlas-app-alerts'
             send_resolved: true
             icon_emoji: ':red_circle:'
             username: 'Alertmanager'
@@ -52,7 +52,7 @@ data:
 
       - name: 'slack-warning'
         slack_configs:
-          - channel: '#banking-alerts'
+          - channel: '#atlas-app-alerts'
             send_resolved: true
             icon_emoji: ':warning:'
             username: 'Alertmanager'
