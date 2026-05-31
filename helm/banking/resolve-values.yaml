@@ -13,19 +13,18 @@ integrations:
     connection:
       url: http://grafana.monitoring.svc.cluster.local:3000
       alertScrapingEnabled: true
-  alertmanager-main:
+  alertmanager:
     type: alertManager
     create: true
     connection:
       url: http://alertmanager.monitoring.svc.cluster.local:9093
-  elasticsearch-banking:
+  elasticsearch:
     type: elasticsearch
     create: true
     connection:
       url: http://elasticsearch.monitoring.svc.cluster.local:9200
       # no auth — xpack security disabled on this cluster
-      # index: banking-logs
-  loki-banking:
+  loki:
     type: loki
     create: true
     connection:
