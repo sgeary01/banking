@@ -1,0 +1,164 @@
+{{- if .Values.noiseGenerator.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: noise-generator-script
+  namespace: {{ .Release.Namespace }}
+data:
+  main.py: |
+    """
+    Ambient on-call noise generator.
+
+    Discovers chaos scenarios from chaos-service at startup, classifies them
+    into "warning" (short flaps) and "crisis" (sustained, alert-firing)
+    pools, and runs a continuous loop:
+      - Every NOISE_BASE +/- jitter seconds: kick a random warning scenario
+        for NOISE_DURATION seconds
+      - Every CRISIS_BASE +/- jitter seconds: kick a random crisis scenario
+        for CRISIS_DURATION seconds
+
+    All chaos lives inside the chaos-service — this script just orchestrates.
+    """
+    import asyncio, os, random, time, logging, signal, sys
+    import httpx
+
+    GW = os.getenv("CHAOS_URL", "http://chaos-service:8009")
+    NOISE_BASE = int(os.getenv("NOISE_BASE", "120"))
+    NOISE_JITTER = int(os.getenv("NOISE_JITTER", "60"))
+    CRISIS_BASE = int(os.getenv("CRISIS_BASE", "900"))
+    CRISIS_JITTER = int(os.getenv("CRISIS_JITTER", "300"))
+    NOISE_DURATION = int(os.getenv("NOISE_DURATION", "120"))
+    CRISIS_DURATION = int(os.getenv("CRISIS_DURATION", "150"))
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='{"ts":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}',
+    )
+    log = logging.getLogger("noise")
+
+    CRISIS_KEYWORDS = ("outage", "latency", "cascade")
+
+    async def discover():
+        async with httpx.AsyncClient(timeout=5) as c:
+            for attempt in range(30):
+                try:
+                    r = await c.get(f"{GW}/scenarios")
+                    r.raise_for_status()
+                    return [s["name"] for s in r.json()]
+                except Exception as e:
+                    log.info(f"waiting for chaos-service ({attempt+1}/30): {e}")
+                    await asyncio.sleep(3)
+            raise RuntimeError("chaos-service unreachable after 90s")
+
+    def classify(scenarios):
+        crisis, warning = [], []
+        for s in scenarios:
+            if any(k in s for k in CRISIS_KEYWORDS):
+                crisis.append(s)
+            else:
+                warning.append(s)
+        return crisis, warning
+
+    async def trigger(c, name):
+        try:
+            await c.post(f"{GW}/scenarios/{name}/trigger", timeout=5)
+        except Exception:
+            pass
+
+    async def clear(c):
+        try:
+            await c.post(f"{GW}/scenarios/clear", timeout=5)
+        except Exception:
+            pass
+
+    async def run_chaos(c, name, duration, kind):
+        log.info(f"{kind}: {name} for {duration}s")
+        end = time.time() + duration
+        while time.time() < end:
+            await trigger(c, name)
+            await asyncio.sleep(6)
+        await clear(c)
+        log.info(f"{kind} ended: {name}")
+
+    async def main():
+        scenarios = await discover()
+        crisis_pool, warning_pool = classify(scenarios)
+        if not crisis_pool or not warning_pool:
+            log.error(f"need both warning and crisis scenarios. got crisis={crisis_pool}, warning={warning_pool}")
+            sys.exit(1)
+        log.info(f"warnings: {warning_pool}")
+        log.info(f"crises:   {crisis_pool}")
+        log.info(f"cadence:  noise={NOISE_BASE}s+/-{NOISE_JITTER}, crisis={CRISIS_BASE}s+/-{CRISIS_JITTER}")
+
+        start = time.time()
+        last_crisis = start
+        next_noise = start
+
+        async with httpx.AsyncClient(timeout=5) as c:
+            while True:
+                now = time.time()
+                if now - last_crisis > CRISIS_BASE + random.uniform(0, CRISIS_JITTER):
+                    s = random.choice(crisis_pool)
+                    asyncio.create_task(run_chaos(c, s, CRISIS_DURATION, "CRITICAL"))
+                    last_crisis = now
+                if now >= next_noise:
+                    s = random.choice(warning_pool)
+                    asyncio.create_task(run_chaos(c, s, NOISE_DURATION, "warning"))
+                    next_noise = now + NOISE_BASE + random.uniform(0, NOISE_JITTER)
+                await asyncio.sleep(5)
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noise-generator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: noise-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noise-generator
+  template:
+    metadata:
+      labels:
+        app: noise-generator
+    spec:
+      containers:
+        - name: noise-generator
+          image: {{ .Values.noiseGenerator.image | default "banking/base:latest" }}
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "/scripts/main.py"]
+          env:
+            - name: CHAOS_URL
+              value: "http://chaos-service:8009/chaos"
+            - name: NOISE_BASE
+              value: {{ .Values.noiseGenerator.noiseBase | quote }}
+            - name: NOISE_JITTER
+              value: {{ .Values.noiseGenerator.noiseJitter | quote }}
+            - name: NOISE_DURATION
+              value: {{ .Values.noiseGenerator.noiseDuration | quote }}
+            - name: CRISIS_BASE
+              value: {{ .Values.noiseGenerator.crisisBase | quote }}
+            - name: CRISIS_JITTER
+              value: {{ .Values.noiseGenerator.crisisJitter | quote }}
+            - name: CRISIS_DURATION
+              value: {{ .Values.noiseGenerator.crisisDuration | quote }}
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: script
+          configMap:
+            name: noise-generator-script
+{{- end }}

@@ -71,3 +71,16 @@ services:
 seed:
   enabled: true
   image: banking/base:latest
+
+# Ambient noise generator — produces a continuous on-call signal pattern of
+# warning-level chaos flaps with occasional sustained critical events.
+# Set enabled=false to silence the cluster (e.g., while developing).
+noiseGenerator:
+  enabled: true
+  image: banking/base:latest
+  noiseBase: 120        # mean seconds between warning flaps
+  noiseJitter: 60
+  noiseDuration: 120    # seconds each warning runs
+  crisisBase: 900       # mean seconds between sustained critical events (~15 min)
+  crisisJitter: 300
+  crisisDuration: 150
