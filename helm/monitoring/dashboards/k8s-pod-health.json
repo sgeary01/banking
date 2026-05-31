@@ -1,8 +1,8 @@
 {
-  "title": "Banking \u2014 Kubernetes & Pod Health",
+  "title": "Atlas Financial \u2014 Kubernetes & Pod Health",
   "uid": "banking-k8s",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",

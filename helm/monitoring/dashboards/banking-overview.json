@@ -1,8 +1,8 @@
 {
   "uid": "banking-overview",
-  "title": "Banking — Overview",
+  "title": "Atlas Financial — Coverage Overview",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",

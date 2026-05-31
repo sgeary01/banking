@@ -1,8 +1,8 @@
 {
   "uid": "banking-transactions",
-  "title": "Banking — Transactions & Payments",
+  "title": "Atlas Financial — Claims & Premiums",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",
@@ -21,7 +21,7 @@
     },
     {
       "id": 2,
-      "title": "Transaction RPS",
+      "title": "Claim Submission RPS",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
@@ -57,7 +57,7 @@
     },
     {
       "id": 3,
-      "title": "Transaction Error Rate %",
+      "title": "Claim Processing Error Rate %",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
@@ -97,7 +97,7 @@
     },
     {
       "id": 4,
-      "title": "Transaction P95 Latency",
+      "title": "Claim Submission P95 Latency",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
@@ -135,14 +135,14 @@
     },
     {
       "id": 10,
-      "title": "Transaction Service",
+      "title": "Claims Service",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "collapsed": false
     },
     {
       "id": 11,
-      "title": "Transaction Service — Request Rate by Status",
+      "title": "Claims Service — Request Rate by Status",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
@@ -186,7 +186,7 @@
     },
     {
       "id": 12,
-      "title": "Transaction Service — Latency Percentiles",
+      "title": "Claims Service — Latency Percentiles",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
@@ -230,14 +230,14 @@
     },
     {
       "id": 20,
-      "title": "Ledger Service",
+      "title": "Benefits Ledger",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "collapsed": false
     },
     {
       "id": 21,
-      "title": "Ledger Service — Request Rate",
+      "title": "Benefits Ledger — Request Rate",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
@@ -275,7 +275,7 @@
     },
     {
       "id": 22,
-      "title": "Ledger Service — Latency",
+      "title": "Benefits Ledger — Latency",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
@@ -320,7 +320,7 @@
     },
     {
       "id": 31,
-      "title": "Transaction & Ledger Error Logs",
+      "title": "Claims & Benefits Error Logs",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "banking-loki" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },

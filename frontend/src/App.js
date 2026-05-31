@@ -8,10 +8,10 @@ import FraudAlerts from './pages/FraudAlerts';
 import ChaosPanel from './pages/ChaosPanel';
 
 const NAV = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/accounts', label: 'Accounts' },
-  { to: '/transactions', label: 'Transactions' },
-  { to: '/fraud', label: 'Fraud Alerts' },
+  { to: '/dashboard', label: 'My Coverage' },
+  { to: '/accounts', label: 'Policies' },
+  { to: '/transactions', label: 'Claims' },
+  { to: '/fraud', label: 'Investigations' },
   { to: '/chaos', label: 'Chaos Panel' },
 ];
 

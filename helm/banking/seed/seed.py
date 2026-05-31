@@ -1,9 +1,11 @@
 """
-Seed script — creates realistic banking data:
-  - 10 customers with auth accounts
-  - 2-3 accounts per customer (checking, savings, sometimes credit)
-  - Historical transactions (deposits, withdrawals, transfers)
-  - A few high-value transactions to seed fraud alerts
+Seed script — creates realistic group benefits data for the Atlas Financial demo.
+The underlying schema is unchanged (banking heritage), so the API still uses
+'account' / 'transaction' terminology while the data inside reads as insurance:
+  - 10 members with auth accounts
+  - 2-3 policies per member (Term Life, Whole Life, Disability, Dental, Vision, Pet)
+  - Historical activity (premium payments, claim payouts, internal transfers)
+  - A few high-value claim submissions to seed investigation alerts
 """
 
 import httpx
@@ -69,34 +71,36 @@ def create_customer_and_accounts(client_data: dict) -> tuple[str, list[str]]:
         "customer_id": customer_id,
     }, timeout=10)  # May 409 if re-seeding, that's fine
 
-    # 3. Create accounts
+    # 3. Create policies (stored in the 'accounts' table — heritage schema)
     account_ids = []
 
-    # Checking account — everyone gets one
+    # Every member has Term Life — the base group benefit. Balance = coverage amount.
     r = httpx.post(f"{ACCOUNT_URL}/accounts", json={
         "customer_id": customer_id,
-        "account_type": "checking",
-        "initial_balance": round(random.uniform(500, 5000), 2),
+        "account_type": "Term Life",
+        "initial_balance": round(random.choice([250_000, 500_000, 750_000, 1_000_000]), 2),
     }, timeout=10)
     r.raise_for_status()
     account_ids.append(r.json()["id"])
 
-    # Savings account — 80% of customers
-    if random.random() < 0.8:
+    # ~70% also have Dental — common employer-paid add-on
+    if random.random() < 0.7:
         r = httpx.post(f"{ACCOUNT_URL}/accounts", json={
             "customer_id": customer_id,
-            "account_type": "savings",
-            "initial_balance": round(random.uniform(2000, 25000), 2),
+            "account_type": "Dental",
+            "initial_balance": round(random.uniform(1500, 3000), 2),  # annual max
         }, timeout=10)
         r.raise_for_status()
         account_ids.append(r.json()["id"])
 
-    # Credit account — 40% of customers
-    if random.random() < 0.4:
+    # ~50% have a third — Vision / Disability / Pet — randomly chosen
+    if random.random() < 0.5:
+        kind = random.choice(["Vision", "Disability", "Pet"])
+        coverage = {"Vision": (400, 800), "Disability": (60_000, 120_000), "Pet": (5_000, 15_000)}[kind]
         r = httpx.post(f"{ACCOUNT_URL}/accounts", json={
             "customer_id": customer_id,
-            "account_type": "credit",
-            "initial_balance": 0.0,
+            "account_type": kind,
+            "initial_balance": round(random.uniform(*coverage), 2),
         }, timeout=10)
         r.raise_for_status()
         account_ids.append(r.json()["id"])
@@ -105,64 +109,87 @@ def create_customer_and_accounts(client_data: dict) -> tuple[str, list[str]]:
 
 
 def generate_transactions(all_account_ids: list[str]):
-    """Generate realistic transaction history."""
-    print("\nGenerating transaction history…")
+    """Generate realistic activity: premium payments, claim payouts, internal transfers."""
+    print("\nGenerating policy activity…")
 
-    # Regular deposits (payroll, etc.)
-    payroll_amounts = [2500, 3200, 4100, 2800, 5000, 3750]
+    # Premium payments (recorded as deposits in the heritage schema)
+    premium_amounts = [85, 120, 215, 340, 65, 410]  # monthly premiums for various plan tiers
     for account_id in all_account_ids:
         for i in range(random.randint(3, 6)):
-            amount = random.choice(payroll_amounts) + random.uniform(-50, 50)
+            amount = random.choice(premium_amounts) + random.uniform(-5, 5)
             r = httpx.post(f"{TX_URL}/transactions/deposit", json={
                 "account_id": account_id,
                 "amount": round(amount, 2),
-                "description": random.choice(["Payroll deposit", "Direct deposit", "ACH transfer in"]),
+                "description": random.choice([
+                    "Monthly premium — payroll deduction",
+                    "Employer contribution",
+                    "Annual premium payment",
+                ]),
             }, timeout=15)
             if r.status_code == 201:
-                print(f"  + Deposit ${amount:.0f} → {account_id[:8]}…")
+                print(f"  + Premium ${amount:.0f} → {account_id[:8]}…")
             time.sleep(0.05)
 
-    # Regular withdrawals / bills
-    bill_descriptions = ["Electric bill", "Internet service", "Grocery store", "Gas station", "Restaurant", "Online shopping", "Streaming service"]
+    # Claim payouts (recorded as withdrawals in the heritage schema)
+    claim_descriptions = [
+        "Dental cleaning — preventive",
+        "Annual physical exam",
+        "Vision exam + frames",
+        "Specialist consult — copay reimbursement",
+        "Prescription reimbursement",
+        "Urgent care visit",
+        "Physical therapy session",
+        "Lab work — quarterly bloodwork",
+        "Crown replacement",
+        "Diagnostic imaging",
+    ]
     for account_id in all_account_ids:
         for i in range(random.randint(4, 8)):
-            amount = round(random.uniform(15, 350), 2)
+            amount = round(random.uniform(45, 850), 2)
             r = httpx.post(f"{TX_URL}/transactions/withdraw", json={
                 "account_id": account_id,
                 "amount": amount,
-                "description": random.choice(bill_descriptions),
+                "description": random.choice(claim_descriptions),
             }, timeout=15)
             if r.status_code == 201:
-                print(f"  - Withdrawal ${amount:.0f} ← {account_id[:8]}…")
+                print(f"  - Claim ${amount:.0f} ← {account_id[:8]}…")
             time.sleep(0.05)
 
-    # Transfers between accounts
+    # Internal benefit transfers (FSA/HSA-style cross-policy)
     if len(all_account_ids) >= 2:
-        for _ in range(8):
+        for _ in range(6):
             src, dst = random.sample(all_account_ids, 2)
-            amount = round(random.uniform(50, 800), 2)
+            amount = round(random.uniform(100, 600), 2)
             r = httpx.post(f"{TX_URL}/transactions/transfer", json={
                 "source_account_id": src,
                 "destination_account_id": dst,
                 "amount": amount,
-                "description": random.choice(["Transfer to savings", "Move funds", "Account transfer"]),
+                "description": random.choice([
+                    "FSA reimbursement transfer",
+                    "Cross-benefit reconciliation",
+                    "HSA contribution rollover",
+                ]),
             }, timeout=15)
             if r.status_code == 201:
-                print(f"  ↔ Transfer ${amount:.0f} {src[:8]}… → {dst[:8]}…")
+                print(f"  ↔ Internal ${amount:.0f} {src[:8]}… → {dst[:8]}…")
             time.sleep(0.05)
 
-    # High-value transactions — will trigger fraud alerts
-    print("\nGenerating fraud-triggering transactions…")
-    fraud_accounts = random.sample(all_account_ids, min(3, len(all_account_ids)))
-    for account_id in fraud_accounts:
+    # High-value claims — will trigger investigation alerts (legacy fraud detector)
+    print("\nGenerating high-value claims (investigation triggers)…")
+    flagged_accounts = random.sample(all_account_ids, min(3, len(all_account_ids)))
+    for account_id in flagged_accounts:
         amount = round(random.uniform(6000, 14000), 2)
         r = httpx.post(f"{TX_URL}/transactions/deposit", json={
             "account_id": account_id,
             "amount": amount,
-            "description": "Large wire transfer",
+            "description": random.choice([
+                "Major medical claim — inpatient stay",
+                "Orthopedic surgery claim",
+                "Out-of-network specialist claim",
+            ]),
         }, timeout=15)
         if r.status_code == 201:
-            print(f"  ⚠ High-value deposit ${amount:.0f} → {account_id[:8]}… (fraud alert expected)")
+            print(f"  ⚠ High-value claim ${amount:.0f} → {account_id[:8]}… (investigation expected)")
         time.sleep(0.1)
 
 

@@ -37,12 +37,12 @@ export default function FraudAlerts() {
   return (
     <div style={s.card}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-        <div style={s.h2}>Fraud Alerts</div>
+        <div style={s.h2}>Claim Investigations</div>
         <div style={{ marginLeft: 'auto' }}>
           {['open', 'reviewed', 'dismissed', 'all'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
               style={{ padding: '6px 14px', border: '1px solid #ddd', borderRadius: 6, marginRight: 6, cursor: 'pointer', fontSize: 13,
-                background: filter === f ? '#6c63ff' : '#fff', color: filter === f ? '#fff' : '#333' }}>
+                background: filter === f ? '#1E40AF' : '#fff', color: filter === f ? '#fff' : '#333' }}>
               {f}
             </button>
           ))}
@@ -55,7 +55,7 @@ export default function FraudAlerts() {
           <thead>
             <tr>
               <th style={s.th}>Risk Score</th>
-              <th style={s.th}>Account</th>
+              <th style={s.th}>Policy</th>
               <th style={s.th}>Reasons</th>
               <th style={s.th}>Status</th>
               <th style={s.th}>Time</th>

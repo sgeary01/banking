@@ -11,10 +11,18 @@ const s = {
   filter: { padding: '7px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, marginRight: 8 },
 };
 
-const typeColor = t => ({ deposit: '#52c41a', withdrawal: '#ff4d4f', transfer: '#6c63ff' }[t] || '#888');
+// Backend stores deposit/withdrawal/transfer; UI shows insurance-flavored labels.
+const TX_LABEL = { deposit: 'Premium', withdrawal: 'Claim', transfer: 'Internal' };
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'withdrawal', label: 'Claims' },
+  { key: 'deposit', label: 'Premiums' },
+  { key: 'transfer', label: 'Internal' },
+];
+const typeColor = t => ({ deposit: '#52c41a', withdrawal: '#1E40AF', transfer: '#8c8c8c' }[t] || '#888');
 const statusColor = s => ({ completed: '#52c41a', pending: '#fa8c16', failed: '#ff4d4f', flagged: '#f5222d' }[s] || '#888');
 
-export default function Transactions({ customerId }) {
+export default function Claims({ customerId }) {
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -29,7 +37,6 @@ export default function Transactions({ customerId }) {
         all.push(...txRes.data);
       }
       all.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      // Deduplicate by id
       const seen = new Set();
       setTransactions(all.filter(t => { if (seen.has(t.id)) return false; seen.add(t.id); return true; }));
       setLoading(false);
@@ -41,12 +48,12 @@ export default function Transactions({ customerId }) {
   return (
     <div style={s.card}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-        <div style={s.h2}>All Transactions</div>
+        <div style={s.h2}>Claims & Premiums</div>
         <div style={{ marginLeft: 'auto' }}>
-          {['all', 'deposit', 'withdrawal', 'transfer'].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{ ...s.filter, background: filter === f ? '#6c63ff' : '#fff', color: filter === f ? '#fff' : '#333', cursor: 'pointer' }}>
-              {f}
+          {FILTERS.map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              style={{ ...s.filter, background: filter === f.key ? '#1E40AF' : '#fff', color: filter === f.key ? '#fff' : '#333', cursor: 'pointer' }}>
+              {f.label}
             </button>
           ))}
         </div>
@@ -66,7 +73,7 @@ export default function Transactions({ customerId }) {
           <tbody>
             {visible.map(tx => (
               <tr key={tx.id}>
-                <td style={s.td}><span style={s.badge(typeColor(tx.transaction_type))}>{tx.transaction_type}</span></td>
+                <td style={s.td}><span style={s.badge(typeColor(tx.transaction_type))}>{TX_LABEL[tx.transaction_type] || tx.transaction_type}</span></td>
                 <td style={s.td}>{tx.description || '—'}</td>
                 <td style={{ ...s.td, fontWeight: 600 }}>${tx.amount.toFixed(2)}</td>
                 <td style={s.td}><span style={s.badge(statusColor(tx.status))}>{tx.status}</span></td>
@@ -76,7 +83,7 @@ export default function Transactions({ customerId }) {
           </tbody>
         </table>
       )}
-      {!loading && visible.length === 0 && <p style={{ color: '#aaa', fontSize: 13 }}>No transactions found</p>}
+      {!loading && visible.length === 0 && <p style={{ color: '#aaa', fontSize: 13 }}>Nothing to show</p>}
     </div>
   );
 }

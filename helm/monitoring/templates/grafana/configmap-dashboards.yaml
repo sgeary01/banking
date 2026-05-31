@@ -11,8 +11,8 @@ data:
   dashboards.yml: |
     apiVersion: 1
     providers:
-      - name: Banking
-        folder: Banking
+      - name: Atlas Financial
+        folder: Atlas Financial
         type: file
         options:
           path: /etc/grafana/provisioning/dashboards

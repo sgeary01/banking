@@ -1,8 +1,8 @@
 {
   "uid": "banking-fraud",
-  "title": "Banking — Fraud & Risk",
+  "title": "Atlas Financial — Claim Investigations",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",
@@ -21,7 +21,7 @@
     },
     {
       "id": 2,
-      "title": "Fraud Check RPS",
+      "title": "Investigation Check RPS",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
@@ -57,7 +57,7 @@
     },
     {
       "id": 3,
-      "title": "Fraud Service Error Rate %",
+      "title": "Investigation Service Error Rate %",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
@@ -97,7 +97,7 @@
     },
     {
       "id": 4,
-      "title": "Fraud Service P95 Latency",
+      "title": "Investigation Service P95 Latency",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
@@ -135,14 +135,14 @@
     },
     {
       "id": 10,
-      "title": "Fraud Activity",
+      "title": "Investigation Activity",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "collapsed": false
     },
     {
       "id": 11,
-      "title": "Fraud Service — Request Rate",
+      "title": "Investigation Service — Request Rate",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
@@ -180,7 +180,7 @@
     },
     {
       "id": 12,
-      "title": "Fraud Service — Latency",
+      "title": "Investigation Service — Latency",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
@@ -225,7 +225,7 @@
     },
     {
       "id": 21,
-      "title": "Fraud Check Rate vs Alert Threshold",
+      "title": "Investigation Rate vs Alert Threshold",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "banking-prometheus" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
@@ -363,7 +363,7 @@
     },
     {
       "id": 41,
-      "title": "Fraud & Reporting Logs",
+      "title": "Investigation & Reporting Logs",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "banking-loki" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },

@@ -1,8 +1,8 @@
 {
   "uid": "banking-service-health",
-  "title": "Banking — Service Health",
+  "title": "Atlas Financial — Service Health",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",

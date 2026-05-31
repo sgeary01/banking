@@ -1,8 +1,8 @@
 {
   "uid": "banking-logs",
-  "title": "Banking \u2014 Logs Explorer",
+  "title": "Atlas Financial \u2014 Logs Explorer",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",
