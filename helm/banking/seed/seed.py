@@ -51,8 +51,10 @@ def wait_for_services():
             print(f"  ✗ {name}-service not ready after 60s — continuing anyway")
 
 
-def create_customer_and_accounts(client_data: dict) -> tuple[str, list[str]]:
-    """Returns (customer_id, [account_ids])"""
+def create_customer_and_accounts(client_data: dict, force_full: bool = False) -> tuple[str, list[str]]:
+    """Returns (customer_id, [account_ids]). force_full guarantees all 3 policy
+    types regardless of random rolls — used for the first few customers so the
+    default demo login always has rich data to show."""
 
     # 1. Create customer profile
     r = httpx.post(f"{CUSTOMER_URL}/customers", json=client_data, timeout=10)
@@ -83,8 +85,8 @@ def create_customer_and_accounts(client_data: dict) -> tuple[str, list[str]]:
     r.raise_for_status()
     account_ids.append(r.json()["id"])
 
-    # ~70% also have Dental — common employer-paid add-on
-    if random.random() < 0.7:
+    # Dental — always for force_full members, ~70% otherwise
+    if force_full or random.random() < 0.7:
         r = httpx.post(f"{ACCOUNT_URL}/accounts", json={
             "customer_id": customer_id,
             "account_type": "Dental",
@@ -93,8 +95,8 @@ def create_customer_and_accounts(client_data: dict) -> tuple[str, list[str]]:
         r.raise_for_status()
         account_ids.append(r.json()["id"])
 
-    # ~50% have a third — Vision / Disability / Pet — randomly chosen
-    if random.random() < 0.5:
+    # Vision / Disability / Pet — always for force_full members, ~50% otherwise
+    if force_full or random.random() < 0.5:
         kind = random.choice(["Vision", "Disability", "Pet"])
         coverage = {"Vision": (400, 800), "Disability": (60_000, 120_000), "Pet": (5_000, 15_000)}[kind]
         r = httpx.post(f"{ACCOUNT_URL}/accounts", json={
@@ -217,9 +219,12 @@ def main():
 
     all_account_ids = []
 
-    for cdata in CUSTOMERS:
+    for idx, cdata in enumerate(CUSTOMERS):
+        # First 3 members always get all 3 policy types — the demo's auto-login
+        # picks the first seeded member, so this guarantees rich data on first view.
+        force_full = idx < 3
         print(f"Creating {cdata['first_name']} {cdata['last_name']} ({cdata['email']})…")
-        customer_id, account_ids = create_customer_and_accounts(cdata)
+        customer_id, account_ids = create_customer_and_accounts(cdata, force_full=force_full)
         if customer_id:
             print(f"  customer_id={customer_id}, accounts={len(account_ids)}")
             all_account_ids.extend(account_ids)
