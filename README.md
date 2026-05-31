@@ -41,7 +41,7 @@ Deployed into the `monitoring` namespace, these mirror an enterprise customer's 
 
 | Component | Purpose |
 |---|---|
-| `msteams-relay` | Receives Alertmanager webhooks, posts a card to a real Teams webhook (`TEAMS_WEBHOOK_URL`) when set, and always renders a mock `#banking-alerts` channel at :30150 |
+| `msteams-relay` | Receives Alertmanager webhooks, posts a card to a real Teams webhook (`TEAMS_WEBHOOK_URL`) when set, and always renders a mock `#atlas-app-alerts` channel at :30150 |
 | `servicenow-mock` | Receives Alertmanager webhooks and opens/resolves incidents; exposes a ServiceNow-style Table API (`/api/now/table/incident`) and an incident-queue UI at :30140 |
 | Elasticsearch + Fluent Bit + Kibana | Fluent Bit ships banking pod logs to a single-node Elasticsearch (index `banking-logs`) in parallel with Loki; Kibana at :30560. Toggle with `elastic.enabled` |
 
@@ -95,7 +95,7 @@ CoreDNS dnstap → resolve-satellite:4444
 | http://localhost:30030 | Grafana — `admin` / `admin` |
 | http://localhost:30093 | Alertmanager UI |
 | http://localhost:30140 | ServiceNow mock — incident queue |
-| http://localhost:30150 | Teams mock — `#banking-alerts` channel view |
+| http://localhost:30150 | Teams mock — `#atlas-app-alerts` channel view |
 | http://localhost:30560 | Kibana — Elastic log destination (index `banking-logs`) |
 
 **Default login:** `sarah.chen@atlasfi.com` / `password123` (and 9 other seeded users)

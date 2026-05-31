@@ -170,7 +170,7 @@ async def channel_view():
         )
     cards_html = "".join(rows) or "<p class='empty'>No alerts yet. Trigger a chaos scenario.</p>"
     return f"""<!doctype html><html><head><meta charset="utf-8">
-<title>Teams — #banking-alerts (mock)</title>
+<title>Teams — #atlas-app-alerts (mock)</title>
 <meta http-equiv="refresh" content="10">
 <style>
   body {{ font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f3f2f1; margin:0; }}
@@ -186,7 +186,7 @@ async def channel_view():
   .sum {{ color:#222; }} .desc {{ color:#666; }}
   .empty {{ color:#888; text-align:center; margin-top:40px; }}
 </style></head><body>
-<div class="hdr">Microsoft Teams &nbsp;›&nbsp; Banking SRE &nbsp;›&nbsp; #banking-alerts
+<div class="hdr">Microsoft Teams &nbsp;›&nbsp; Atlas Financial SRE &nbsp;›&nbsp; #atlas-app-alerts
   <small>(mock channel — auto-refresh 10s)</small></div>
 <div class="feed">{cards_html}</div>
 </body></html>"""
