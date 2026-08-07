@@ -67,3 +67,8 @@ tmp/
 temp/
 *.tmp
 *.log
+
+# MCP server local DB (regenerate with mcp-db/seed.py) + runtime files
+mcp-db/data.db
+mcp-db/.mcp-server.pid
+mcp-db/.mcp-server.log

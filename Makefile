@@ -6,6 +6,14 @@ SERVICES = api-gateway auth-service customer-service account-service \
            notification-service reporting-service chaos-service \
            msteams-relay servicenow-mock
 
+# ── Local MCP server (host process, not in-cluster) ─────────────
+MCP_DIR  = ./mcp-db
+MCP_PY   = $(MCP_DIR)/.venv/bin/python
+MCP_PID  = $(MCP_DIR)/.mcp-server.pid
+MCP_LOG  = $(MCP_DIR)/.mcp-server.log
+MCP_HOST ?= 127.0.0.1
+MCP_PORT ?= 8765
+
 .PHONY: build-base build build-service \
         up down \
         monitoring-up monitoring-down \
@@ -13,7 +21,9 @@ SERVICES = api-gateway auth-service customer-service account-service \
         monitoring-helm-install monitoring-helm-uninstall \
         logs clean grafana grafana-k8s network \
         promtail-logs prometheus-forward \
-        k3d-up k3d-down k3d-rebuild k3d-import
+        k3d-up k3d-down k3d-rebuild k3d-import \
+        mcp-setup mcp-seed mcp-up mcp-down mcp-restart mcp-status mcp-logs mcp-db \
+        lab-up lab-down
 
 # ── Network ─────────────────────────────────────────────────────
 ## Create the shared external network (idempotent)
@@ -172,6 +182,74 @@ grafana-token-refresh:
 	kubectl rollout restart statefulset/resolve-satellite-satellite-chart -n default; \
 	kubectl rollout status statefulset/resolve-satellite-satellite-chart -n default --timeout=60s; \
 	echo "Done — token refreshed and satellite restarted"
+
+# ── Local MCP server ────────────────────────────────────────────
+## Create the venv and install deps (idempotent)
+mcp-setup:
+	@if [ ! -x $(MCP_PY) ]; then echo "==> Creating venv"; python3 -m venv $(MCP_DIR)/.venv; fi
+	@$(MCP_PY) -m pip install -q -r $(MCP_DIR)/requirements.txt
+
+## (Re)generate the SQLite DB at mcp-db/data.db
+mcp-seed: mcp-setup
+	@$(MCP_PY) $(MCP_DIR)/seed.py
+
+## Start the MCP server in the background (loads token from .env; PID-tracked).
+## Override bind with: make mcp-up MCP_HOST=0.0.0.0   (needed later for the satellite)
+mcp-up: mcp-setup
+	@if [ -f $(MCP_PID) ] && kill -0 $$(cat $(MCP_PID)) 2>/dev/null; then \
+	  echo "MCP server already running (pid $$(cat $(MCP_PID)))"; \
+	else \
+	  [ -f $(MCP_DIR)/data.db ] || $(MAKE) mcp-seed; \
+	  set -a; . ./.env; set +a; \
+	  MCP_HOST=$(MCP_HOST) MCP_PORT=$(MCP_PORT) nohup $(MCP_PY) $(MCP_DIR)/server.py > $(MCP_LOG) 2>&1 & echo $$! > $(MCP_PID); \
+	  sleep 2; \
+	  if kill -0 $$(cat $(MCP_PID)) 2>/dev/null; then \
+	    echo "MCP server up on http://$(MCP_HOST):$(MCP_PORT)/mcp (pid $$(cat $(MCP_PID)))"; \
+	  else echo "MCP server failed to start; last log lines:"; tail -5 $(MCP_LOG); rm -f $(MCP_PID); exit 1; fi; \
+	fi
+
+## Stop the MCP server
+mcp-down:
+	@if [ -f $(MCP_PID) ] && kill -0 $$(cat $(MCP_PID)) 2>/dev/null; then \
+	  kill $$(cat $(MCP_PID)) 2>/dev/null || true; rm -f $(MCP_PID); echo "MCP server stopped"; \
+	else \
+	  PIDS=$$(lsof -ti :$(MCP_PORT) 2>/dev/null); \
+	  if [ -n "$$PIDS" ]; then echo "$$PIDS" | xargs kill 2>/dev/null || true; echo "MCP server stopped (by port)"; \
+	  else echo "MCP server not running"; fi; \
+	  rm -f $(MCP_PID); \
+	fi
+
+## Restart the MCP server
+mcp-restart:
+	@$(MAKE) mcp-down
+	@$(MAKE) mcp-up
+
+## Show whether the MCP server is running
+mcp-status:
+	@if [ -f $(MCP_PID) ] && kill -0 $$(cat $(MCP_PID)) 2>/dev/null; then \
+	  echo "process: running (pid $$(cat $(MCP_PID)))"; else echo "process: not running"; fi
+	@curl -s -o /dev/null -w "port $(MCP_PORT): HTTP %{http_code} (401 = up + auth enforced)\n" \
+	  -X POST http://127.0.0.1:$(MCP_PORT)/mcp -H 'Content-Type: application/json' -d '{}' 2>/dev/null \
+	  || echo "port $(MCP_PORT): no response"
+
+## Tail the MCP server log
+mcp-logs:
+	@tail -f $(MCP_LOG)
+
+## Open the SQLite DB directly in the sqlite3 CLI shell
+mcp-db:
+	@sqlite3 $(MCP_DIR)/data.db
+
+# ── Full lab (cluster + MCP server) ─────────────────────────────
+## Bring up everything: k3d cluster/bootstrap, then the local MCP server
+lab-up:
+	@$(MAKE) k3d-up
+	@$(MAKE) mcp-up
+
+## Tear down everything: stop the MCP server, then destroy the cluster
+lab-down:
+	@$(MAKE) mcp-down
+	@$(MAKE) k3d-down
 
 # ── Chaos ───────────────────────────────────────────────────────
 ## Interactive chaos menu — app and infra scenarios in one place
