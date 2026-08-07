@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 ingest:
-  host: receiver.app0.resolve.ai
+  host: receiver.dev0.resolve.ai
 
 
 # Default values for the published chart.

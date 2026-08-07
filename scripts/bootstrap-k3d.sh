@@ -188,18 +188,19 @@ fi
 
 # ── Deploy monitoring ──────────────────────────────────────────────────────────
 info "Deploying monitoring stack (Helm)"
-# 10m timeout: Elasticsearch + Kibana cold-start (and ~1.6 GB first-time image
-# pulls) can take several minutes when elastic.enabled=true.
+# 20m timeout: on a BRAND-NEW cluster every monitoring image (ES, Kibana,
+# Prometheus, Grafana, Loki, Tempo, fluent-bit ~ several GB total) is pulled
+# from the internet for the first time, which can exceed 10m before pods go Ready.
 helm upgrade --install monitoring ./helm/monitoring \
   --namespace monitoring --create-namespace \
   --values ./helm/monitoring/values.yaml \
-  --wait --timeout 10m
+  --wait --timeout 20m
 
 success "Monitoring stack deployed"
 
 info "Waiting for monitoring pods to be ready (Elastic/Kibana can be slow)"
 kubectl wait --for=condition=ready pod \
-  --all -n monitoring --timeout=420s
+  --all -n monitoring --timeout=600s
 success "All monitoring pods ready"
 
 # ── Resolve satellite ──────────────────────────────────────────────────────────

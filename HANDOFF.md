@@ -1,10 +1,47 @@
 # HANDOFF — Atlas Financial demo prep
 
-_As of 2026-05-30. Demo date: **2026-06-02**._
+_Updated 2026-06-02 (**demo day**). Demo date: **2026-06-02**._
+
+**Resolve env: dev0** (reverted from app0 on 2026-08-07 — app0 tenant was lost). NOTE: the
+`RESOLVE_INGEST_TOKEN` in `.env` must be a **dev0** satellite ingest token (mint at
+https://app.dev0.resolve.ai → Settings → Satellites); the old app0 token is dead. All 6 integrations
+(grafana, alertmanager, elasticsearch, loki, prometheus, tempo) to be re-registered on dev0.
+One-time UI step if Grafana shows unauthenticated: paste the `resolve-grafana` SA token
+(`kubectl get secret resolve-grafana -n default -o jsonpath='{.data.apiToken}' | base64 -d`)
+into dev0's Grafana integration. ES Watcher is disabled (`xpack.watcher.enabled=false`), so the
+satellite logs harmless 400s on `_watcher/_query/watches`; ES log search is unaffected.
 
 Read this cold to pick up the work in a fresh Claude Code / CLI window. The durable
 state is the **repo** (this dir) + the **running k3d cluster** — both are shared across
 any window. Nothing to merge.
+
+## ⏸ PAUSED 2026-06-03 — RESUME HERE
+Did a full teardown + fresh rebuild. It **partially completed**:
+- Cluster recreated; **all banking (13 pods incl. noise-generator) + monitoring (13 pods) are Running/Ready.**
+- Monitoring **Helm release is marked `failed`** — on a brand-new cluster the public images pulled
+  from the internet for the first time and exceeded the 10m `--wait`; pods came up *after* Helm gave up.
+- Because `set -e` aborted on that timeout, the **satellite was never deployed** (none in `default` ns).
+- **Fix already applied:** bumped monitoring `--wait` to **20m** (+ kubectl wait 600s) in `scripts/bootstrap-k3d.sh`.
+- Cluster is now ~a day old, so data isn't truly fresh (noise-generator has been running, mock queues accumulated).
+
+**To resume — pick one (cluster context: `k3d-banking`, run from repo root):**
+
+- **Finish in place (fast, ~5 min, images cached, low risk):**
+  ```bash
+  ./scripts/bootstrap-k3d.sh --no-build   # reconciles monitoring (failed->deployed) + deploys satellite + coredns
+  # optional clean slate:
+  kubectl rollout restart deploy/servicenow-mock deploy/msteams-relay -n monitoring   # wipe mock queues
+  kubectl rollout restart deployment -n banking                                       # fresh DBs -> seeder reseeds
+  ```
+- **True fresh teardown + rebuild (~20 min, re-pulls images; timeout now fixed):**
+  ```bash
+  make k3d-down && make k3d-up
+  ```
+After either: paste the (re-minted) `resolve-grafana` SA token into dev0's Grafana integration once
+(`kubectl get secret resolve-grafana -n default -o jsonpath='{.data.apiToken}' | base64 -d`).
+Reliable demo trigger: `kubectl scale deployment reporting-service -n banking --replicas=0` (ServiceDown in ~1m), restore with `--replicas=1`.
+
+To save laptop RAM while paused: `k3d cluster stop banking` (resume with `k3d cluster start banking` then `kubectl config use-context k3d-banking`).
 
 ## What this is
 The `banking` O11y lab, tweaked for the Atlas Financial demo. Goal: an injected incident flows
