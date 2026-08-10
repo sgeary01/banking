@@ -48,3 +48,15 @@ integrations:
     create: true
     connection:
       url: http://tempo.monitoring.svc.cluster.local:3200
+  # Local MCP server running on the Mac host (mcp-db/). The satellite reaches
+  # back out to the host via host.k3d.internal. Bearer token comes from the
+  # mcp-integration-credentials secret (key: token), created by bootstrap from
+  # MCP_AUTH_TOKEN; the satellite sends it as Authorization: Bearer <token>.
+  # Server must be bound to 0.0.0.0 for this (make mcp-up MCP_HOST=0.0.0.0).
+  mcpIntegration-main:
+    type: mcpIntegration
+    create: true
+    secretName: mcp-integration-credentials
+    connection:
+      mcpServerUrl: http://host.k3d.internal:8765/mcp
+      authMethod: token

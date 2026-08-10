@@ -20,6 +20,7 @@ from pathlib import Path
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
 
 DB_PATH = Path(__file__).parent / "data.db"
@@ -27,12 +28,25 @@ AUTH_TOKEN = os.environ.get("MCP_AUTH_TOKEN", "")
 HOST = os.environ.get("MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("MCP_PORT", "8765"))
 
+# The streamable-HTTP transport enforces DNS-rebinding protection by checking
+# the Host header against an allowlist. Localhost is allowed by default; the
+# satellite reaches us as host.k3d.internal:<port>, so that must be allowed too.
+# Override/extend via MCP_ALLOWED_HOSTS (comma-separated host:port entries).
+_DEFAULT_HOSTS = f"127.0.0.1:{PORT},localhost:{PORT},host.k3d.internal:{PORT}"
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("MCP_ALLOWED_HOSTS", _DEFAULT_HOSTS).split(",") if h.strip()]
+
 MAX_ROWS = 1000
 # A query must be a single read-only statement. SQLite read-only connection is
 # the hard guarantee; this check just gives callers a clean error.
 SELECT_RE = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
 
-mcp = FastMCP("banking-db")
+mcp = FastMCP(
+    "banking-db",
+    transport_security=TransportSecuritySettings(
+        allowed_hosts=ALLOWED_HOSTS,
+        allowed_origins=["*"],
+    ),
+)
 
 
 def _connect() -> sqlite3.Connection:

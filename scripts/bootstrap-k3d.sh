@@ -270,6 +270,25 @@ else
     warn "SLACK_WEBHOOK_URL not set — Alertmanager Slack notifications disabled"
   fi
 
+  # Create the MCP server bearer-token secret. The mcpIntegration block in
+  # resolve-values.yaml references it by name, so the satellite pod will not
+  # start without it. If MCP_AUTH_TOKEN is unset we still create a placeholder
+  # so the satellite comes up; the MCP integration just 401s until a real token
+  # is set (and the server is started with: make mcp-up MCP_HOST=0.0.0.0).
+  if [[ -n "${MCP_AUTH_TOKEN:-}" ]]; then
+    kubectl create secret generic mcp-integration-credentials \
+      --from-literal=token="${MCP_AUTH_TOKEN}" \
+      --namespace default \
+      --dry-run=client -o yaml | kubectl apply -f -
+    success "mcp-integration-credentials secret applied"
+  else
+    kubectl create secret generic mcp-integration-credentials \
+      --from-literal=token="unset-run-make-mcp-up" \
+      --namespace default \
+      --dry-run=client -o yaml | kubectl apply -f -
+    warn "MCP_AUTH_TOKEN not set — placeholder mcp-integration-credentials created (MCP integration will 401 until set)"
+  fi
+
   info "Deploying Resolve satellite (Helm)"
   helm upgrade --install resolve-satellite ./helm/satellite-chart \
     --namespace default \
@@ -339,4 +358,12 @@ if [[ -n "${RESOLVE_INGEST_TOKEN:-}" ]]; then
     echo -e "  Re-fetch this token any time:  ${BOLD}make grafana-token${RESET}"
     echo ""
   fi
+
+  # ── MCP server reminder ────────────────────────────────────────────────────
+  # The mcpIntegration points the satellite at the local MCP server on the Mac
+  # host (host.k3d.internal:8765). That server must be running and bound to
+  # 0.0.0.0 for the satellite to reach it.
+  echo -e "  ${BOLD}MCP integration${RESET} → satellite will call host.k3d.internal:8765"
+  echo -e "  Start the local MCP server so it can reach it:  ${BOLD}make mcp-up MCP_HOST=0.0.0.0${RESET}"
+  echo ""
 fi

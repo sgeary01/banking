@@ -70,20 +70,39 @@ set -a; source .env; set +a
 claude                              # /mcp should show banking-db connected
 ```
 
-## Later: connect Resolve via the satellite
+## Resolve via the satellite (wired and working)
 
-Not wired yet. When ready, the server must bind `0.0.0.0` (set
-`MCP_HOST=0.0.0.0`) so the in-cluster satellite can reach the Mac host at
-`host.k3d.internal:8765`, and this block goes in
-`helm/banking/resolve-values.yaml` under `integrations:` (token supplied via a
-k8s secret, created by bootstrap from `MCP_AUTH_TOKEN`, same pattern as
-`resolve-grafana`):
+The satellite reaches this server on the Mac host at `host.k3d.internal:8765`
+over streamable HTTP, authenticating with the bearer token. Requirements:
+
+1. Server bound to `0.0.0.0` (so the in-cluster satellite can reach the host):
+   `make mcp-up MCP_HOST=0.0.0.0`.
+2. The Host header `host.k3d.internal:8765` is allowed by the server's
+   DNS-rebinding protection (handled by default in `server.py` via
+   `ALLOWED_HOSTS`; extend with `MCP_ALLOWED_HOSTS`).
+3. A k8s secret named `mcp-integration-credentials` in the `default` namespace
+   with key `token` = `MCP_AUTH_TOKEN`. Bootstrap creates it; the satellite
+   sends it as `Authorization: Bearer <token>`.
+
+Config block in `helm/banking/resolve-values.yaml` under `integrations:`:
 
 ```yaml
 mcpIntegration-main:
   type: mcpIntegration
   create: true
-  secretName: mcpIntegration-credentials
+  secretName: mcp-integration-credentials   # lowercase (RFC 1123)
   connection:
     mcpServerUrl: http://host.k3d.internal:8765/mcp
+    authMethod: token
 ```
+
+After changing the block or the token, re-apply:
+
+```bash
+helm upgrade --install resolve-satellite ./helm/satellite-chart \
+  --namespace default --values ./helm/banking/resolve-values.yaml --wait
+kubectl rollout restart statefulset/resolve-satellite-satellite-chart -n default
+```
+
+Confirm in the satellite logs: `MCP client connected successfully using
+StreamableHTTP` and a tool-list request with `result: success`.
