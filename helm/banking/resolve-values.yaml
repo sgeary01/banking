@@ -5,6 +5,54 @@ ingest:
 clusterName: banking
 environment: smg-production
 
+# TIER 2 — security sidecar. Proxies the satellite's outbound HTTP client so
+# responses (incl. Loki/ES logs) pass through the redaction proxy. Image v13
+# is public; latest is not. Comment this block out to drop back to Tier 0/1.
+# httpApiClientProxyUrl disabled: routing through the sidecar defers redaction to
+# it, and its JSONPath parser is broken for arrays (can't navigate items[*]), so it
+# can't redact list/log responses. Satellite-side base redaction uses a real
+# JSONPath lib and handles items[*]. Re-enable (uncomment) only to demo the proxy /
+# secret-isolation, not response redaction.
+# httpApiClientProxyUrl: "http://localhost:8080"
+sidecarProxy:
+  enableRedaction: "true"
+  container:
+    image:
+      repository: clouddatalabs/security-sidecar
+      tag: v13
+      pullPolicy: Always
+    port: 8080
+    resources:            # docs suggest 8Gi; that won't schedule on k3d. A proxy needs little.
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# Extend the DEFAULT k8s integration with redaction paths. The default integration
+# keeps enableRedaction:true; we add targetJsonPaths so the ConfigMap data string
+# is actually scanned (empty paths = no redaction on JSON responses). Key must be
+# dot-free ('app_config') for the sidecar's naive JSONPath parser.
+defaultIntegrations:
+  k8s:
+    type: kubernetes
+    create: true
+    connection:
+      redactionConfig:
+        enabled: true
+        targetJsonPaths:
+          - "$.items[*].data.app_config"
+  loki:
+    type: loki
+    create: true
+    connection:
+      url: http://loki.monitoring.svc.cluster.local:3100
+      redactionConfig:
+        enabled: true
+        targetJsonPaths:
+          - "$.data.result[*].values[*][1]"
+
 # NOTE: configOverride is left at the chart default (true) on purpose.
 # We tried configOverride: false to pin everything to this file, but the
 # satellite's Grafana integration would not authenticate via the K8s
@@ -15,6 +63,19 @@ environment: smg-production
 # | base64 -d`) into the Resolve UI's Grafana integration ONE time.
 
 integrations:
+  # k8s TIER TOGGLE (counterintuitive, verified in the binary):
+  #   Tier 1 (base redaction ON)  = NO override here -> chart-default k8s, which
+  #                                 injects the 11 patterns + enableRedaction.
+  #   Tier 0 (raw)                = uncomment the k8s override below -> a user
+  #                                 kubernetes integration does NOT get the
+  #                                 default redaction, so redaction is off.
+  # (redactionConfig.enabled on a user k8s integration is a no-op.)
+  # k8s:
+  #   type: kubernetes
+  #   create: true
+  #   connection:
+  #     enableAuditLogging: true
+  #     ignoreExternalIPs: true
   grafana:
     type: grafana
     create: true
@@ -33,11 +94,8 @@ integrations:
     connection:
       url: http://elasticsearch.monitoring.svc.cluster.local:9200
       # no auth — xpack security disabled on this cluster
-  loki:
-    type: loki
-    create: true
-    connection:
-      url: http://loki.monitoring.svc.cluster.local:3100
+  # loki moved to defaultIntegrations below (test: does default-integration handling
+  # grant enableRedaction + patterns to non-k8s types, enabling LOG redaction?)
   prometheus:
     type: prometheus
     create: true
